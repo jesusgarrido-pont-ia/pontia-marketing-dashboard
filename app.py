@@ -640,6 +640,151 @@ def chart_perdida_por_semana(df: pd.DataFrame):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# SEMÁFORO DE DECISIÓN
+# ══════════════════════════════════════════════════════════════════════════════
+def _clasificar_campana(cpl, roas, leads, inv):
+    """Devuelve (icono, estado, color_borde, color_fondo, color_texto, color_nombre)."""
+    if leads == 0 and inv > 0:
+        return ("🔴", "PAUSAR",
+                "rgba(239,83,80,.4)", "rgba(239,83,80,.1)", "#EF5350", "#EF9A9A")
+    if pd.isna(cpl) or cpl is None:
+        return ("⚪", "S/D", "rgba(139,160,176,.3)", "rgba(139,160,176,.07)", "#8BA0B0", "#8BA0B0")
+    if cpl > 40:
+        return ("🔴", "PAUSAR",
+                "rgba(239,83,80,.4)", "rgba(239,83,80,.1)", "#EF5350", "#EF9A9A")
+    if cpl > 25 or (not pd.isna(roas) and roas is not None and roas < 1):
+        return ("🟡", "REVISAR",
+                "rgba(255,193,7,.4)", "rgba(255,193,7,.1)", "#FFC107", "#FFE082")
+    if cpl <= 15 and (pd.isna(roas) or roas is None or roas >= 2):
+        return ("🟢", "ESCALAR",
+                "rgba(76,175,80,.4)", "rgba(76,175,80,.1)", "#4CAF50", "#A5D6A7")
+    return ("⚪", "MANTENER",
+            "rgba(86,131,210,.3)", "rgba(86,131,210,.07)", "#5683D2", "#90CAF9")
+
+
+def panel_decisiones(df: pd.DataFrame):
+    """Panel de decisiones con semáforo — para la reunión semanal."""
+    g = (
+        df.groupby("ID_Campaña")
+        .agg(
+            Canal=("Canal", "first"),
+            Leads=("Leads Válidos", "sum"),
+            Inv=("Inversión (€)", "sum"),
+            CPL=("CPL (€)", "mean"),
+            ROAS=("ROAS", "mean"),
+            Matr=("Matriculados", "sum"),
+        )
+        .reset_index()
+    )
+    estados = g.apply(
+        lambda r: pd.Series(
+            _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inv"]),
+            index=["ico", "estado", "borde", "fondo", "texto", "nombre_color"],
+        ),
+        axis=1,
+    )
+    g = pd.concat([g, estados], axis=1)
+
+    pausar  = g[g["estado"] == "PAUSAR"].sort_values("CPL", ascending=False, na_position="first")
+    revisar = g[g["estado"] == "REVISAR"].sort_values("CPL", ascending=False)
+    escalar = g[g["estado"] == "ESCALAR"].sort_values("ROAS", ascending=False)
+
+    # ── Cabecera ───────────────────────────────────────────────────────────
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(135deg,#0E1A26,#162535);
+        border:1px solid #1E3347;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1.2rem">
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem">
+            <span style="font-size:1.2rem">🎯</span>
+            <span style="font-family:Manrope,sans-serif;font-size:1rem;font-weight:800;color:#F6FAB2">
+              Panel de Decisiones — ¿Qué hacer esta semana?
+            </span>
+            <span style="font-size:.72rem;color:#8BA0B0;margin-left:auto">{len(g)} campañas</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem">
+            <div style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.35);
+            border-radius:10px;padding:.7rem;text-align:center">
+              <div style="font-size:1.8rem;font-weight:800;color:#EF5350">{len(pausar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#EF9A9A;letter-spacing:.08em">🔴 PAUSAR</div>
+            </div>
+            <div style="background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.35);
+            border-radius:10px;padding:.7rem;text-align:center">
+              <div style="font-size:1.8rem;font-weight:800;color:#FFC107">{len(revisar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#FFE082;letter-spacing:.08em">🟡 REVISAR</div>
+            </div>
+            <div style="background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.35);
+            border-radius:10px;padding:.7rem;text-align:center">
+              <div style="font-size:1.8rem;font-weight:800;color:#4CAF50">{len(escalar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#A5D6A7;letter-spacing:.08em">🟢 ESCALAR</div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Tres columnas con tarjetas ─────────────────────────────────────────
+    def _tarjeta(r):
+        cpl_s = f"{r['CPL']:.1f} €" if not pd.isna(r["CPL"]) else "Sin CPL"
+        roas_s = f"· ROAS {r['ROAS']:.2f}x" if not pd.isna(r["ROAS"]) else ""
+        leads_s = int(r["Leads"])
+        return (
+            f'<div style="background:{r["fondo"]};border:1px solid {r["borde"]};'
+            f'border-radius:9px;padding:.55rem .8rem;margin-bottom:.35rem">'
+            f'<div style="font-weight:700;font-size:.82rem;color:{r["nombre_color"]};'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{r["ID_Campaña"]}</div>'
+            f'<div style="font-size:.7rem;color:#8BA0B0;margin-top:.1rem">'
+            f'CPL: <b style="color:{r["texto"]}">{cpl_s}</b> · Leads: <b>{leads_s}</b>{roas_s}'
+            f"</div></div>"
+        )
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(
+            '<div style="font-size:.8rem;font-weight:700;color:#EF5350;margin-bottom:.5rem">'
+            "🔴 Pausar — CPL alto o sin leads</div>",
+            unsafe_allow_html=True,
+        )
+        if pausar.empty:
+            st.markdown(
+                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna campaña en zona roja ✓</div>',
+                unsafe_allow_html=True,
+            )
+        for _, r in pausar.iterrows():
+            st.markdown(_tarjeta(r), unsafe_allow_html=True)
+
+    with c2:
+        st.markdown(
+            '<div style="font-size:.8rem;font-weight:700;color:#FFC107;margin-bottom:.5rem">'
+            "🟡 Revisar — CPL elevado o ROAS < 1</div>",
+            unsafe_allow_html=True,
+        )
+        if revisar.empty:
+            st.markdown(
+                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna en zona amarilla ✓</div>',
+                unsafe_allow_html=True,
+            )
+        for _, r in revisar.iterrows():
+            st.markdown(_tarjeta(r), unsafe_allow_html=True)
+
+    with c3:
+        st.markdown(
+            '<div style="font-size:.8rem;font-weight:700;color:#4CAF50;margin-bottom:.5rem">'
+            "🟢 Escalar — Bajo CPL y buen retorno</div>",
+            unsafe_allow_html=True,
+        )
+        if escalar.empty:
+            st.markdown(
+                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna lista para escalar aún</div>',
+                unsafe_allow_html=True,
+            )
+        for _, r in escalar.iterrows():
+            st.markdown(_tarjeta(r), unsafe_allow_html=True)
+
+    return g  # Para reutilizar en la tabla
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════════════════════
 def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
@@ -684,6 +829,10 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
+    # ── Panel de Decisiones ────────────────────────────────────────────────
+    section("Decisiones de la Semana")
+    panel_decisiones(df)
+
     # ── Alertas automáticas ────────────────────────────────────────────────
     campanas_malas = (
         df[df["Inversión (€)"].fillna(0) > 0]
@@ -722,6 +871,7 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
 def tab_campanas(df: pd.DataFrame):
     """Tab 2: Análisis detallado por campaña."""
     section("Tabla de Rendimiento por Campaña")
+    st.caption("Los colores de CPL, ROAS y Conv. indican el rendimiento: 🟢 bueno · 🟡 mejorable · 🔴 crítico")
 
     summary = (
         df.groupby(["ID_Campaña", "Canal", "Programa"])
@@ -730,7 +880,6 @@ def tab_campanas(df: pd.DataFrame):
             Leads=("Leads Válidos", "sum"),
             CPL=("CPL (€)", "mean"),
             Entrevistas=("Entrevistas", "sum"),
-            Coste_Ent=("Coste Entrevista (€)", "mean"),
             Matriculados=("Matriculados", "sum"),
             Ingresos=("Ingresos (€)", "sum"),
             Alta_Int=("% Alta Intención", "mean"),
@@ -739,30 +888,59 @@ def tab_campanas(df: pd.DataFrame):
     )
     summary["ROAS"] = np.where(summary["Inversión"] > 0, summary["Ingresos"] / summary["Inversión"], np.nan)
     summary["Conv%"] = np.where(summary["Leads"] > 0, summary["Matriculados"] / summary["Leads"] * 100, np.nan)
-    summary["% Alta Int."] = summary["Alta_Int"] * 100
+
+    # Columna Estado con semáforo
+    summary["Estado"] = summary.apply(
+        lambda r: _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"])[0]
+                  + " " + _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"])[1],
+        axis=1,
+    )
 
     display = summary[[
-        "ID_Campaña", "Canal", "Programa", "Inversión", "Leads", "CPL",
-        "Entrevistas", "Coste_Ent", "Matriculados", "Ingresos", "ROAS", "Conv%", "% Alta Int.",
+        "Estado", "ID_Campaña", "Canal", "Inversión", "Leads", "CPL",
+        "Entrevistas", "Matriculados", "Ingresos", "ROAS", "Conv%",
     ]].copy()
     display.columns = [
-        "Campaña", "Canal", "Programa", "Inversión €", "Leads", "CPL €",
-        "Entrevistas", "Coste Ent. €", "Matriculados", "Ingresos €", "ROAS", "Conv. %", "Alta Int. %",
+        "Estado", "Campaña", "Canal", "Inversión €", "Leads", "CPL €",
+        "Entrevistas", "Matrículas", "Ingresos €", "ROAS", "Conv. %",
     ]
 
-    # Formateo para display
-    for c in ["Inversión €", "CPL €", "Coste Ent. €", "Ingresos €"]:
-        display[c] = display[c].apply(lambda x: f"{x:,.1f}" if not pd.isna(x) else "—")
-    for c in ["ROAS"]:
-        display[c] = display[c].apply(lambda x: f"{x:.2f}x" if not pd.isna(x) else "—")
-    for c in ["Conv. %", "Alta Int. %"]:
-        display[c] = display[c].apply(lambda x: f"{x:.1f}%" if not pd.isna(x) else "—")
+    # Funciones de color para Styler (reciben valores numéricos originales)
+    def _c_cpl(v):
+        if pd.isna(v): return ""
+        if v <= 15: return "color: #4CAF50; font-weight: 700"
+        if v <= 25: return "color: #FFC107; font-weight: 700"
+        return "color: #EF5350; font-weight: 700"
 
-    st.dataframe(
-        display.sort_values("Leads", ascending=False).reset_index(drop=True),
-        use_container_width=True,
-        height=400,
+    def _c_roas(v):
+        if pd.isna(v): return ""
+        if v >= 3: return "color: #4CAF50; font-weight: 700"
+        if v >= 1: return "color: #FFC107; font-weight: 700"
+        return "color: #EF5350; font-weight: 700"
+
+    def _c_conv(v):
+        if pd.isna(v): return ""
+        if v >= 5: return "color: #4CAF50; font-weight: 700"
+        if v >= 2: return "color: #FFC107; font-weight: 700"
+        return "color: #EF5350; font-weight: 700"
+
+    styled = (
+        display.sort_values("Leads", ascending=False)
+        .reset_index(drop=True)
+        .style
+        .format({
+            "Inversión €": lambda x: f"{x:,.0f} €" if not pd.isna(x) else "—",
+            "CPL €": lambda x: f"{x:.1f} €" if not pd.isna(x) else "—",
+            "Ingresos €": lambda x: f"{x:,.0f} €" if not pd.isna(x) else "—",
+            "ROAS": lambda x: f"{x:.2f}x" if not pd.isna(x) else "—",
+            "Conv. %": lambda x: f"{x:.1f}%" if not pd.isna(x) else "—",
+        })
+        .applymap(_c_cpl, subset=["CPL €"])
+        .applymap(_c_roas, subset=["ROAS"])
+        .applymap(_c_conv, subset=["Conv. %"])
     )
+
+    st.dataframe(styled, use_container_width=True, height=420)
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 

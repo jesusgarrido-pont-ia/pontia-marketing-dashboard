@@ -590,8 +590,8 @@ def chart_heatmap_campanas(df: pd.DataFrame, metric="CPL (€)"):
         colorbar=dict(title=metric, tickfont=dict(color=C["muted"]), title_font=dict(color=C["muted"])),
     ))
     _base(fig, f"Heatmap — {metric} por Campaña × Semana",
-          yaxis=dict(**AXIS_BASE, tickfont=dict(size=10, color=C["muted"])),
-                      height=max(300, len(pivot) * 30 + 100))
+          yaxis={**AXIS_BASE, "tickfont": dict(size=10, color=C["muted"])},
+          height=max(300, len(pivot) * 30 + 100))
     return fig
 
 

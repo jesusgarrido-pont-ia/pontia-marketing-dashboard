@@ -292,10 +292,6 @@ def alert(text, kind="i"):
 # ══════════════════════════════════════════════════════════════════════════════
 # CHARTS
 # ══════════════════════════════════════════════════════════════════════════════
-def _apply_base(fig, title=""):
-    _base(fig, title)
-    return fig
-
 
 def chart_evolucion_semanal(df: pd.DataFrame):
     """Evolución semanal de KPIs globales agrupados por semana."""
@@ -472,17 +468,29 @@ def chart_mapa_eficiencia(df: pd.DataFrame):
 
 def chart_alta_intencion(df: pd.DataFrame):
     """% Alta Intención por semana y canal."""
-    g = (
-        df.groupby(["Semana_label", "Canal"])
-        .agg(
-            Consideracion=("Consideración", "sum"),
-            Decision=("Decisión", "sum"),
-            Leads=("Leads Válidos", "sum"),
+    # Usar % Alta Intención precalculada si está disponible, si no calcular desde Consideración/Decisión
+    if "% Alta Intención" in df.columns:
+        g = (
+            df.groupby(["Semana_label", "Canal"])
+            .agg(Leads=("Leads Válidos", "sum"), AltaInt=("% Alta Intención", "mean"))
+            .reset_index()
         )
-        .reset_index()
-    )
-    g = g[g["Leads"] > 0]
-    g["% Alta Int."] = (g["Consideracion"] + g["Decision"]) / g["Leads"] * 100
+        g = g[g["Leads"] > 0]
+        g["% Alta Int."] = g["AltaInt"].fillna(0) * 100
+    elif "Consideración" in df.columns and "Decisión" in df.columns:
+        g = (
+            df.groupby(["Semana_label", "Canal"])
+            .agg(
+                Consideracion=("Consideración", "sum"),
+                Decision=("Decisión", "sum"),
+                Leads=("Leads Válidos", "sum"),
+            )
+            .reset_index()
+        )
+        g = g[g["Leads"] > 0]
+        g["% Alta Int."] = (g["Consideracion"] + g["Decision"]) / g["Leads"] * 100
+    else:
+        return None
     g["_ord"] = g["Semana_label"].str.replace("S", "").astype(int)
     g = g.sort_values("_ord")
 
@@ -530,7 +538,7 @@ def chart_motivos_perdida(df: pd.DataFrame):
         "No es lo que buscaba":    "No es lo que buscaba",
         "No tiene dinero":         "Precio",
         "No interesa (Otros)":     "No interesa",
-        "Matriculado otra escuela":"Competencia",
+        "Matriculado en otra escuela": "Competencia",
         "Próxima convocatoria":    "Próxima conv.",
         "Busca Certificación":     "Certif.",
         "Busca otra metodología":  "Otra metodología",
@@ -564,6 +572,8 @@ def chart_motivos_perdida(df: pd.DataFrame):
 
 def chart_heatmap_campanas(df: pd.DataFrame, metric="CPL (€)"):
     """Heatmap: Campañas × Semanas con color = métrica."""
+    if metric not in df.columns:
+        return None
     pivot = df.pivot_table(index="ID_Campaña", columns="Semana_label", values=metric, aggfunc="mean")
     if pivot.empty:
         return None
@@ -769,7 +779,11 @@ def tab_campanas(df: pd.DataFrame):
     st.plotly_chart(chart_mapa_eficiencia(df), use_container_width=True, config={"displayModeBar": False}, key="mapa_eficiencia")
 
     section("% Leads Alta Intención por Semana y Canal")
-    st.plotly_chart(chart_alta_intencion(df), use_container_width=True, config={"displayModeBar": False}, key="alta_intencion")
+    fig_ai = chart_alta_intencion(df)
+    if fig_ai:
+        st.plotly_chart(fig_ai, use_container_width=True, config={"displayModeBar": False}, key="alta_intencion")
+    else:
+        st.info("Sin datos de intención disponibles.")
 
 
 def tab_historico(df: pd.DataFrame):
@@ -841,14 +855,12 @@ def tab_perdidas(df: pd.DataFrame):
     st.plotly_chart(chart_perdida_por_semana(df), use_container_width=True, config={"displayModeBar": False}, key="perdida_semana")
 
     section("Análisis de pérdidas por campaña")
-    loss_sum = df.groupby("ID_Campaña").agg(
-        Leads=("Leads Válidos", "sum"),
-        Perdidos=("Perdidos", "sum"),
-        No_Valido=("No válido", "sum"),
-        Precio=("No tiene dinero", "sum"),
-        Competencia=("Matriculado en otra escuela", "sum"),
-        Ilocalizado=("Ilocalizado", "sum"),
-    ).reset_index()
+    _agg = {"Leads": ("Leads Válidos", "sum"), "Perdidos": ("Perdidos", "sum")}
+    for alias, col in [("No_Valido", "No válido"), ("Precio", "No tiene dinero"),
+                       ("Competencia", "Matriculado en otra escuela"), ("Ilocalizado", "Ilocalizado")]:
+        if col in df.columns:
+            _agg[alias] = (col, "sum")
+    loss_sum = df.groupby("ID_Campaña").agg(**_agg).reset_index()
     loss_sum["% Pérdida"] = np.where(
         loss_sum["Leads"] > 0,
         loss_sum["Perdidos"] / loss_sum["Leads"] * 100,

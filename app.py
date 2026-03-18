@@ -64,22 +64,33 @@ CHART_PALETTE = [
     "#00BCD4", "#FF80AB", "#FFB74D", "#81C784",
 ]
 
+LEGEND_BASE = dict(
+    bgcolor="rgba(14,26,38,0.8)",
+    bordercolor=C["border"],
+    borderwidth=1,
+    font=dict(color="#FFFFFF", size=11),
+)
+
+AXIS_BASE = dict(gridcolor=C["border"], linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"])
+
 PLOT_BASE = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(22,37,53,0.4)",
     font=dict(family="Manrope, sans-serif", color="#FFFFFF", size=12),
     title_font=dict(family="Manrope, sans-serif", color=C["yellow"], size=14),
-    legend=dict(
-        bgcolor="rgba(14,26,38,0.8)",
-        bordercolor=C["border"],
-        borderwidth=1,
-        font=dict(color="#FFFFFF", size=11),
-    ),
-    xaxis=dict(gridcolor=C["border"], linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"]),
-    yaxis=dict(gridcolor=C["border"], linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"]),
+    legend=LEGEND_BASE,
     margin=dict(l=10, r=10, t=40, b=10),
     hoverlabel=dict(bgcolor=C["card"], bordercolor=C["border"], font_family="Manrope", font_color="#FFFFFF"),
 )
+
+def _base(fig, title="", **axis_kwargs):
+    """Aplica PLOT_BASE + ejes por defecto + overrides opcionales."""
+    fig.update_layout(**PLOT_BASE, title_text=title, **axis_kwargs)
+    if "xaxis" not in axis_kwargs:
+        fig.update_xaxes(**AXIS_BASE)
+    if "yaxis" not in axis_kwargs:
+        fig.update_yaxes(**AXIS_BASE)
+    return fig
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -139,6 +150,9 @@ a{color:#F6FAB2}
 /* ── Inputs ───────────────────────────────── */
 .stSelectbox [data-baseweb="select"],.stMultiSelect [data-baseweb="select"]{background:#162535;border-color:#1E3347;border-radius:8px}
 .stTextInput input,.stPasswordInput input{background:#162535!important;border-color:#1E3347!important;border-radius:8px!important;color:#FFF!important}
+/* Multiselect tags: fondo verde oscuro, texto amarillo claro legible */
+.stMultiSelect [data-baseweb="tag"]{background:#173A32!important;border:1px solid #2A6B5A!important}
+.stMultiSelect [data-baseweb="tag"] span{color:#F6FAB2!important;font-weight:600}
 
 /* ── Login card ───────────────────────────── */
 .login-card{background:linear-gradient(135deg,#162535,#1A2D3D);border:1px solid #1E3347;border-radius:20px;padding:2.5rem 2rem;box-shadow:0 20px 60px rgba(0,0,0,.5)}
@@ -183,7 +197,7 @@ def _load_auth_config() -> dict:
 
 def check_login(email: str, password: str) -> bool:
     cfg = _load_auth_config()
-    authorized = [e.lower().strip() for e in cfg.get("authorized_emails", [])]
+    authorized = [e.lower().strip() for e in cfg.get("authorized_emails", []) if e]
     return email.lower().strip() in authorized and password == cfg.get("password", "")
 
 
@@ -281,10 +295,6 @@ def alert(text, kind="i"):
 # ══════════════════════════════════════════════════════════════════════════════
 # CHARTS
 # ══════════════════════════════════════════════════════════════════════════════
-def _apply_base(fig, title=""):
-    fig.update_layout(**PLOT_BASE, title_text=title)
-    return fig
-
 
 def chart_evolucion_semanal(df: pd.DataFrame):
     """Evolución semanal de KPIs globales agrupados por semana."""
@@ -321,8 +331,8 @@ def chart_evolucion_semanal(df: pd.DataFrame):
                        hovertemplate=f"<b>%{{x}}</b><br>{col}: %{{y}}<extra></extra>"),
             secondary_y=True,
         )
-    fig.update_layout(**PLOT_BASE, title_text="Evolución Semanal — Inversión & Resultados",
-                      legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
+    _base(fig, "Evolución Semanal — Inversión & Resultados")
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.15))
     fig.update_yaxes(title_text="Inversión (€)", secondary_y=False,
                      title_font=dict(color=C["sage"]), tickfont=dict(color=C["muted"]),
                      gridcolor=C["border"])
@@ -352,8 +362,8 @@ def chart_roas_campanas(df: pd.DataFrame):
     ))
     fig.add_vline(x=1, line_dash="dash", line_color=C["warn"], annotation_text="Break-even",
                   annotation_font=dict(color=C["warn"], size=10))
-    fig.update_layout(**PLOT_BASE, title_text="ROAS por Campaña",
-                      xaxis=dict(**PLOT_BASE["xaxis"], title="ROAS"),
+    _base(fig, "ROAS por Campaña",
+          xaxis=dict(**AXIS_BASE, title="ROAS"),
                       height=max(300, len(g) * 36 + 80))
     return fig
 
@@ -382,8 +392,8 @@ def chart_cpl_campanas(df: pd.DataFrame):
     ))
     fig.add_vline(x=15, line_dash="dash", line_color=C["ok"], annotation_text="Óptimo ≤15€",
                   annotation_font=dict(color=C["ok"], size=10))
-    fig.update_layout(**PLOT_BASE, title_text="CPL Medio por Campaña (€)",
-                      xaxis=dict(**PLOT_BASE["xaxis"], title="CPL (€)"),
+    _base(fig, "CPL Medio por Campaña (€)",
+          xaxis=dict(**AXIS_BASE, title="CPL (€)"),
                       height=max(300, len(g) * 36 + 80))
     return fig
 
@@ -408,7 +418,7 @@ def chart_distribucion_canal(df: pd.DataFrame):
                    hovertemplate=f"<b>%{{label}}</b><br>{title}: %{{value:,.0f}}<br>%{{percent}}<extra></extra>"),
             row=1, col=i,
         )
-    fig.update_layout(**PLOT_BASE, title_text="Distribución por Canal",
+    _base(fig, "Distribución por Canal",
                       showlegend=False, height=320)
     return fig
 
@@ -452,26 +462,38 @@ def chart_mapa_eficiencia(df: pd.DataFrame):
             customdata=sub["Inversión"],
         ))
     fig.add_vline(x=15, line_dash="dash", line_color=C["ok"], opacity=0.5)
-    fig.update_layout(**PLOT_BASE, title_text="Mapa de Eficiencia — CPL vs Leads (tamaño = Inversión)",
-                      xaxis=dict(**PLOT_BASE["xaxis"], title="CPL (€) — menor es mejor"),
-                      yaxis=dict(**PLOT_BASE["yaxis"], title="Leads Válidos"),
+    _base(fig, "Mapa de Eficiencia — CPL vs Leads (tamaño = Inversión)",
+          xaxis=dict(**AXIS_BASE, title="CPL (€) — menor es mejor"),
+          yaxis=dict(**AXIS_BASE, title="Leads Válidos"),
                       height=480)
     return fig
 
 
 def chart_alta_intencion(df: pd.DataFrame):
     """% Alta Intención por semana y canal."""
-    g = (
-        df.groupby(["Semana_label", "Canal"])
-        .agg(
-            Consideracion=("Consideración", "sum"),
-            Decision=("Decisión", "sum"),
-            Leads=("Leads Válidos", "sum"),
+    # Usar % Alta Intención precalculada si está disponible, si no calcular desde Consideración/Decisión
+    if "% Alta Intención" in df.columns:
+        g = (
+            df.groupby(["Semana_label", "Canal"])
+            .agg(Leads=("Leads Válidos", "sum"), AltaInt=("% Alta Intención", "mean"))
+            .reset_index()
         )
-        .reset_index()
-    )
-    g = g[g["Leads"] > 0]
-    g["% Alta Int."] = (g["Consideracion"] + g["Decision"]) / g["Leads"] * 100
+        g = g[g["Leads"] > 0]
+        g["% Alta Int."] = g["AltaInt"].fillna(0) * 100
+    elif "Consideración" in df.columns and "Decisión" in df.columns:
+        g = (
+            df.groupby(["Semana_label", "Canal"])
+            .agg(
+                Consideracion=("Consideración", "sum"),
+                Decision=("Decisión", "sum"),
+                Leads=("Leads Válidos", "sum"),
+            )
+            .reset_index()
+        )
+        g = g[g["Leads"] > 0]
+        g["% Alta Int."] = (g["Consideracion"] + g["Decision"]) / g["Leads"] * 100
+    else:
+        return None
     g["_ord"] = g["Semana_label"].str.replace("S", "").astype(int)
     g = g.sort_values("_ord")
 
@@ -482,9 +504,9 @@ def chart_alta_intencion(df: pd.DataFrame):
         hover_data={"Leads": True},
     )
     fig.update_traces(line_width=2.5, marker_size=7)
-    fig.update_layout(**PLOT_BASE, title_text="% Leads de Alta Intención por Semana y Canal",
-                      yaxis=dict(**PLOT_BASE["yaxis"], title="% Alta Intención", ticksuffix="%"),
-                      legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2))
+    _base(fig, "% Leads de Alta Intención por Semana y Canal",
+          yaxis=dict(**AXIS_BASE, title="% Alta Intención", ticksuffix="%"))
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.2))
     return fig
 
 
@@ -508,7 +530,7 @@ def chart_embudo(df: pd.DataFrame):
         connector=dict(line=dict(color=C["border"], width=1)),
         hovertemplate="<b>%{y}</b><br>Total: %{x}<br>Del total: %{percentInitial}<extra></extra>",
     ))
-    fig.update_layout(**PLOT_BASE, title_text="Embudo de Conversión Global", height=320)
+    _base(fig, "Embudo de Conversión Global", height=320)
     return fig
 
 
@@ -519,7 +541,7 @@ def chart_motivos_perdida(df: pd.DataFrame):
         "No es lo que buscaba":    "No es lo que buscaba",
         "No tiene dinero":         "Precio",
         "No interesa (Otros)":     "No interesa",
-        "Matriculado otra escuela":"Competencia",
+        "Matriculado en otra escuela": "Competencia",
         "Próxima convocatoria":    "Próxima conv.",
         "Busca Certificación":     "Certif.",
         "Busca otra metodología":  "Otra metodología",
@@ -547,12 +569,14 @@ def chart_motivos_perdida(df: pd.DataFrame):
         hovertemplate="<b>%{label}</b><br>Cantidad: %{value}<br>%{percent}<extra></extra>",
         pull=[0.04 if v == max(vals) else 0 for v in vals],
     ))
-    fig.update_layout(**PLOT_BASE, title_text="Motivos de Pérdida de Leads", height=350, showlegend=False)
+    _base(fig, "Motivos de Pérdida de Leads", height=350, showlegend=False)
     return fig
 
 
 def chart_heatmap_campanas(df: pd.DataFrame, metric="CPL (€)"):
     """Heatmap: Campañas × Semanas con color = métrica."""
+    if metric not in df.columns:
+        return None
     pivot = df.pivot_table(index="ID_Campaña", columns="Semana_label", values=metric, aggfunc="mean")
     if pivot.empty:
         return None
@@ -568,9 +592,9 @@ def chart_heatmap_campanas(df: pd.DataFrame, metric="CPL (€)"):
         hovertemplate="<b>%{y}</b><br>Semana: %{x}<br>Valor: %{z:.2f}<extra></extra>",
         colorbar=dict(title=metric, tickfont=dict(color=C["muted"]), title_font=dict(color=C["muted"])),
     ))
-    fig.update_layout(**PLOT_BASE, title_text=f"Heatmap — {metric} por Campaña × Semana",
-                      yaxis=dict(**PLOT_BASE["yaxis"], tickfont=dict(size=10, color=C["muted"])),
-                      height=max(300, len(pivot) * 30 + 100))
+    _base(fig, f"Heatmap — {metric} por Campaña × Semana",
+          yaxis={**AXIS_BASE, "tickfont": dict(size=10, color=C["muted"])},
+          height=max(300, len(pivot) * 30 + 100))
     return fig
 
 
@@ -590,9 +614,8 @@ def chart_evolucion_campana(df: pd.DataFrame, metric="Leads Válidos"):
             marker=dict(size=6), connectgaps=True,
             hovertemplate=f"<b>{camp}</b><br>Semana: %{{x}}<br>{metric}: %{{y}}<extra></extra>",
         ))
-    fig.update_layout(**PLOT_BASE, title_text=f"Evolución de {metric} por Campaña",
-                      legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2),
-                      height=420)
+    _base(fig, f"Evolución de {metric} por Campaña", height=420)
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.2))
     return fig
 
 
@@ -613,9 +636,155 @@ def chart_perdida_por_semana(df: pd.DataFrame):
     fig = go.Figure()
     for col, color in [("Entrevistas", C["blue"]), ("Matriculados", C["ok"]), ("Perdidos", C["danger"])]:
         fig.add_trace(go.Bar(name=col, x=g["Semana_label"], y=g[col], marker_color=color, opacity=0.85))
-    fig.update_layout(**PLOT_BASE, title_text="Entrevistas, Matrículas y Pérdidas por Semana",
-                      barmode="group", legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
+    _base(fig, "Entrevistas, Matrículas y Pérdidas por Semana",
+          barmode="group")
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.15))
     return fig
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SEMÁFORO DE DECISIÓN
+# ══════════════════════════════════════════════════════════════════════════════
+def _clasificar_campana(cpl, roas, leads, inv):
+    """Devuelve (icono, estado, color_borde, color_fondo, color_texto, color_nombre)."""
+    if leads == 0 and inv > 0:
+        return ("🔴", "PAUSAR",
+                "rgba(239,83,80,.4)", "rgba(239,83,80,.1)", "#EF5350", "#EF9A9A")
+    if pd.isna(cpl) or cpl is None:
+        return ("⚪", "S/D", "rgba(139,160,176,.3)", "rgba(139,160,176,.07)", "#8BA0B0", "#8BA0B0")
+    if cpl > 40:
+        return ("🔴", "PAUSAR",
+                "rgba(239,83,80,.4)", "rgba(239,83,80,.1)", "#EF5350", "#EF9A9A")
+    if cpl > 25 or (not pd.isna(roas) and roas is not None and roas < 1):
+        return ("🟡", "REVISAR",
+                "rgba(255,193,7,.4)", "rgba(255,193,7,.1)", "#FFC107", "#FFE082")
+    if cpl <= 15 and (pd.isna(roas) or roas is None or roas >= 2):
+        return ("🟢", "ESCALAR",
+                "rgba(76,175,80,.4)", "rgba(76,175,80,.1)", "#4CAF50", "#A5D6A7")
+    return ("⚪", "MANTENER",
+            "rgba(86,131,210,.3)", "rgba(86,131,210,.07)", "#5683D2", "#90CAF9")
+
+
+def panel_decisiones(df: pd.DataFrame):
+    """Panel de decisiones con semáforo — para la reunión semanal."""
+    g = (
+        df.groupby("ID_Campaña")
+        .agg(
+            Canal=("Canal", "first"),
+            Leads=("Leads Válidos", "sum"),
+            Inv=("Inversión (€)", "sum"),
+            CPL=("CPL (€)", "mean"),
+            ROAS=("ROAS", "mean"),
+            Matr=("Matriculados", "sum"),
+        )
+        .reset_index()
+    )
+    estados = g.apply(
+        lambda r: pd.Series(
+            _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inv"]),
+            index=["ico", "estado", "borde", "fondo", "texto", "nombre_color"],
+        ),
+        axis=1,
+    )
+    g = pd.concat([g, estados], axis=1)
+
+    pausar  = g[g["estado"] == "PAUSAR"].sort_values("CPL", ascending=False, na_position="first")
+    revisar = g[g["estado"] == "REVISAR"].sort_values("CPL", ascending=False)
+    escalar = g[g["estado"] == "ESCALAR"].sort_values("ROAS", ascending=False)
+
+    # ── Cabecera ───────────────────────────────────────────────────────────
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(135deg,#0E1A26,#162535);
+        border:1px solid #1E3347;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1.2rem">
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem">
+            <span style="font-size:1.2rem">🎯</span>
+            <span style="font-family:Manrope,sans-serif;font-size:1rem;font-weight:800;color:#F6FAB2">
+              Panel de Decisiones — ¿Qué hacer esta semana?
+            </span>
+            <span style="font-size:.72rem;color:#8BA0B0;margin-left:auto">{len(g)} campañas</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem">
+            <div style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.35);
+            border-radius:10px;padding:.7rem;text-align:center">
+              <div style="font-size:1.8rem;font-weight:800;color:#EF5350">{len(pausar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#EF9A9A;letter-spacing:.08em">🔴 PAUSAR</div>
+            </div>
+            <div style="background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.35);
+            border-radius:10px;padding:.7rem;text-align:center">
+              <div style="font-size:1.8rem;font-weight:800;color:#FFC107">{len(revisar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#FFE082;letter-spacing:.08em">🟡 REVISAR</div>
+            </div>
+            <div style="background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.35);
+            border-radius:10px;padding:.7rem;text-align:center">
+              <div style="font-size:1.8rem;font-weight:800;color:#4CAF50">{len(escalar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#A5D6A7;letter-spacing:.08em">🟢 ESCALAR</div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Tres columnas con tarjetas ─────────────────────────────────────────
+    def _tarjeta(r):
+        cpl_s = f"{r['CPL']:.1f} €" if not pd.isna(r["CPL"]) else "Sin CPL"
+        roas_s = f"· ROAS {r['ROAS']:.2f}x" if not pd.isna(r["ROAS"]) else ""
+        leads_s = int(r["Leads"])
+        return (
+            f'<div style="background:{r["fondo"]};border:1px solid {r["borde"]};'
+            f'border-radius:9px;padding:.55rem .8rem;margin-bottom:.35rem">'
+            f'<div style="font-weight:700;font-size:.82rem;color:{r["nombre_color"]};'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{r["ID_Campaña"]}</div>'
+            f'<div style="font-size:.7rem;color:#8BA0B0;margin-top:.1rem">'
+            f'CPL: <b style="color:{r["texto"]}">{cpl_s}</b> · Leads: <b>{leads_s}</b>{roas_s}'
+            f"</div></div>"
+        )
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(
+            '<div style="font-size:.8rem;font-weight:700;color:#EF5350;margin-bottom:.5rem">'
+            "🔴 Pausar — CPL alto o sin leads</div>",
+            unsafe_allow_html=True,
+        )
+        if pausar.empty:
+            st.markdown(
+                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna campaña en zona roja ✓</div>',
+                unsafe_allow_html=True,
+            )
+        for _, r in pausar.iterrows():
+            st.markdown(_tarjeta(r), unsafe_allow_html=True)
+
+    with c2:
+        st.markdown(
+            '<div style="font-size:.8rem;font-weight:700;color:#FFC107;margin-bottom:.5rem">'
+            "🟡 Revisar — CPL elevado o ROAS < 1</div>",
+            unsafe_allow_html=True,
+        )
+        if revisar.empty:
+            st.markdown(
+                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna en zona amarilla ✓</div>',
+                unsafe_allow_html=True,
+            )
+        for _, r in revisar.iterrows():
+            st.markdown(_tarjeta(r), unsafe_allow_html=True)
+
+    with c3:
+        st.markdown(
+            '<div style="font-size:.8rem;font-weight:700;color:#4CAF50;margin-bottom:.5rem">'
+            "🟢 Escalar — Bajo CPL y buen retorno</div>",
+            unsafe_allow_html=True,
+        )
+        if escalar.empty:
+            st.markdown(
+                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna lista para escalar aún</div>',
+                unsafe_allow_html=True,
+            )
+        for _, r in escalar.iterrows():
+            st.markdown(_tarjeta(r), unsafe_allow_html=True)
+
+    return g  # Para reutilizar en la tabla
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -663,6 +832,10 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
+    # ── Panel de Decisiones ────────────────────────────────────────────────
+    section("Decisiones de la Semana")
+    panel_decisiones(df)
+
     # ── Alertas automáticas ────────────────────────────────────────────────
     campanas_malas = (
         df[df["Inversión (€)"].fillna(0) > 0]
@@ -682,25 +855,26 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
             alert(f"<b>CPL elevado (>40€):</b> {', '.join(cpl_alto[:3])}{'…' if len(cpl_alto)>3 else ''}", "w")
     with c2:
         if leads > 0 and conv_mat:
-            alert(f"Tasa de conversión Lead→Matrícula: <b>{fmt_pct(conv_mat)}</b> — benchmark sector ~2-5%.", "i")
+            alert(f"Tasa de conversión Lead→Matrícula: <b>{fmt_pct(conv_mat)}</b> — benchmark sector ~3-5%.", "i")
 
     # ── Gráficas ───────────────────────────────────────────────────────────
     section("Evolución Semanal")
     fig_evo = chart_evolucion_semanal(df_all)
-    st.plotly_chart(fig_evo, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig_evo, use_container_width=True, config={"displayModeBar": False}, key="evo_semanal")
 
     c1, c2 = st.columns(2)
     with c1:
         section("ROAS por Campaña")
-        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="roas_resumen")
     with c2:
         section("Distribución por Canal")
-        st.plotly_chart(chart_distribucion_canal(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_distribucion_canal(df), use_container_width=True, config={"displayModeBar": False}, key="dist_canal_resumen")
 
 
 def tab_campanas(df: pd.DataFrame):
     """Tab 2: Análisis detallado por campaña."""
     section("Tabla de Rendimiento por Campaña")
+    st.caption("Los colores de CPL, ROAS y Conv. indican el rendimiento: 🟢 bueno · 🟡 mejorable · 🔴 crítico")
 
     summary = (
         df.groupby(["ID_Campaña", "Canal", "Programa"])
@@ -709,7 +883,6 @@ def tab_campanas(df: pd.DataFrame):
             Leads=("Leads Válidos", "sum"),
             CPL=("CPL (€)", "mean"),
             Entrevistas=("Entrevistas", "sum"),
-            Coste_Ent=("Coste Entrevista (€)", "mean"),
             Matriculados=("Matriculados", "sum"),
             Ingresos=("Ingresos (€)", "sum"),
             Alta_Int=("% Alta Intención", "mean"),
@@ -718,98 +891,203 @@ def tab_campanas(df: pd.DataFrame):
     )
     summary["ROAS"] = np.where(summary["Inversión"] > 0, summary["Ingresos"] / summary["Inversión"], np.nan)
     summary["Conv%"] = np.where(summary["Leads"] > 0, summary["Matriculados"] / summary["Leads"] * 100, np.nan)
-    summary["% Alta Int."] = summary["Alta_Int"] * 100
+
+    # Columna Estado con semáforo
+    summary["Estado"] = summary.apply(
+        lambda r: _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"])[0]
+                  + " " + _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"])[1],
+        axis=1,
+    )
 
     display = summary[[
-        "ID_Campaña", "Canal", "Programa", "Inversión", "Leads", "CPL",
-        "Entrevistas", "Coste_Ent", "Matriculados", "Ingresos", "ROAS", "Conv%", "% Alta Int.",
+        "Estado", "ID_Campaña", "Canal", "Inversión", "Leads", "CPL",
+        "Entrevistas", "Matriculados", "Ingresos", "ROAS", "Conv%",
     ]].copy()
     display.columns = [
-        "Campaña", "Canal", "Programa", "Inversión €", "Leads", "CPL €",
-        "Entrevistas", "Coste Ent. €", "Matriculados", "Ingresos €", "ROAS", "Conv. %", "Alta Int. %",
+        "Estado", "Campaña", "Canal", "Inversión €", "Leads", "CPL €",
+        "Entrevistas", "Matrículas", "Ingresos €", "ROAS", "Conv. %",
     ]
 
-    # Formateo para display
-    for c in ["Inversión €", "CPL €", "Coste Ent. €", "Ingresos €"]:
-        display[c] = display[c].apply(lambda x: f"{x:,.1f}" if not pd.isna(x) else "—")
-    for c in ["ROAS"]:
-        display[c] = display[c].apply(lambda x: f"{x:.2f}x" if not pd.isna(x) else "—")
-    for c in ["Conv. %", "Alta Int. %"]:
-        display[c] = display[c].apply(lambda x: f"{x:.1f}%" if not pd.isna(x) else "—")
+    # Funciones de color para Styler (reciben valores numéricos originales)
+    def _c_cpl(v):
+        if pd.isna(v): return ""
+        if v <= 15: return "color: #4CAF50; font-weight: 700"
+        if v <= 25: return "color: #FFC107; font-weight: 700"
+        return "color: #EF5350; font-weight: 700"
 
-    st.dataframe(
-        display.sort_values("Leads", ascending=False).reset_index(drop=True),
-        use_container_width=True,
-        height=400,
+    def _c_roas(v):
+        if pd.isna(v): return ""
+        if v >= 3: return "color: #4CAF50; font-weight: 700"
+        if v >= 1: return "color: #FFC107; font-weight: 700"
+        return "color: #EF5350; font-weight: 700"
+
+    def _c_conv(v):
+        if pd.isna(v): return ""
+        if v >= 5: return "color: #4CAF50; font-weight: 700"
+        if v >= 2: return "color: #FFC107; font-weight: 700"
+        return "color: #EF5350; font-weight: 700"
+
+    styled = (
+        display.sort_values("Leads", ascending=False)
+        .reset_index(drop=True)
+        .style
+        .format({
+            "Inversión €": lambda x: f"{x:,.0f} €" if not pd.isna(x) else "—",
+            "CPL €": lambda x: f"{x:.1f} €" if not pd.isna(x) else "—",
+            "Ingresos €": lambda x: f"{x:,.0f} €" if not pd.isna(x) else "—",
+            "ROAS": lambda x: f"{x:.2f}x" if not pd.isna(x) else "—",
+            "Conv. %": lambda x: f"{x:.1f}%" if not pd.isna(x) else "—",
+        })
+        .applymap(_c_cpl, subset=["CPL €"])
+        .applymap(_c_roas, subset=["ROAS"])
+        .applymap(_c_conv, subset=["Conv. %"])
     )
+
+    st.dataframe(styled, use_container_width=True, height=420)
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
         section("CPL por Campaña")
-        st.plotly_chart(chart_cpl_campanas(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_cpl_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="cpl_campanas")
     with c2:
         section("ROAS por Campaña")
-        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="roas_campanas")
 
     section("Mapa de Eficiencia — CPL vs Leads (tamaño del círculo = Inversión)")
     st.caption("Las campañas ideales están en la zona inferior-derecha: bajo CPL y muchos leads.")
-    st.plotly_chart(chart_mapa_eficiencia(df), use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(chart_mapa_eficiencia(df), use_container_width=True, config={"displayModeBar": False}, key="mapa_eficiencia")
 
     section("% Leads Alta Intención por Semana y Canal")
-    st.plotly_chart(chart_alta_intencion(df), use_container_width=True, config={"displayModeBar": False})
+    fig_ai = chart_alta_intencion(df)
+    if fig_ai:
+        st.plotly_chart(fig_ai, use_container_width=True, config={"displayModeBar": False}, key="alta_intencion")
+    else:
+        st.info("Sin datos de intención disponibles.")
+
+
+def _chart_evolucion_metric(agg: pd.DataFrame, col: str, title: str, campaigns: list, fmt: str = "") -> go.Figure:
+    """Gráfica de líneas: evolución semanal de una métrica para las campañas seleccionadas."""
+    fig = go.Figure()
+    for i, camp in enumerate(campaigns):
+        d = agg[agg["ID_Campaña"] == camp].sort_values("Semana")
+        if d[col].dropna().empty:
+            continue
+        color = CHART_PALETTE[i % len(CHART_PALETTE)]
+        fig.add_trace(go.Scatter(
+            x=d["Semana_label"], y=d[col],
+            name=camp[:22], mode="lines+markers",
+            line=dict(color=color, width=2.5),
+            marker=dict(size=7, color=color),
+            connectgaps=True,
+            hovertemplate=f"<b>{camp}</b><br>%{{x}}<br>{title}: %{{y:.1f}}{fmt}<extra></extra>",
+        ))
+    _base(fig, title, height=320)
+    fig.update_layout(legend={**LEGEND_BASE, "orientation": "h", "y": -0.32, "font": dict(size=9)})
+    return fig
 
 
 def tab_historico(df: pd.DataFrame):
-    """Tab 3: Evolución histórica semana a semana."""
-    section("Selecciona la métrica a analizar")
-    metric = st.selectbox(
-        "Métrica",
-        ["Leads Válidos", "Inversión (€)", "CPL (€)", "Entrevistas", "Matriculados", "Ingresos (€)", "ROAS"],
-        label_visibility="collapsed",
+    """Tab 3: Evolución de campañas en el tiempo — decisiones de presupuesto."""
+    section("Evolución de Campañas en el Tiempo")
+
+    # ── Selector de campañas ──────────────────────────────────────────────────
+    all_camps = sorted(df["ID_Campaña"].unique().tolist())
+    top5 = (df.groupby("ID_Campaña")["Leads Válidos"].sum().nlargest(5).index.tolist())
+    default = [c for c in top5 if c in all_camps]
+
+    selected = st.multiselect(
+        "Selecciona las campañas a comparar",
+        options=all_camps,
+        default=default,
+        help="Por defecto se muestran las 5 campañas con más leads.",
     )
+    if not selected:
+        st.warning("Selecciona al menos una campaña para ver la evolución.")
+        return
 
-    section(f"Evolución de {metric} por Campaña")
-    fig = chart_evolucion_campana(df, metric)
-    if fig:
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    else:
-        st.info("No hay datos suficientes para esta métrica.")
-
-    section("Heatmap — Rendimiento Semanal por Campaña")
-    hm_metric = st.selectbox("Métrica heatmap", ["CPL (€)", "Leads Válidos", "Entrevistas", "ROAS"], key="hm")
-    actual_col = hm_metric if hm_metric != "ROAS" else "ROAS"
-    fig_hm = chart_heatmap_campanas(df, actual_col)
-    if fig_hm:
-        st.caption(
-            "Verde = valor bajo (mejor para CPL) / Rojo = valor alto. "
-            "Las celdas en blanco indican que la campaña no tenía datos esa semana."
-        )
-        st.plotly_chart(fig_hm, use_container_width=True, config={"displayModeBar": False})
-
-    section("Resumen histórico agregado por semana")
-    hist = (
-        df.groupby("Semana_label")
+    # ── Agregar por semana + campaña ─────────────────────────────────────────
+    dfs = df[df["ID_Campaña"].isin(selected)].copy()
+    agg = (
+        dfs.groupby(["Semana_label", "Semana", "ID_Campaña"])
         .agg(
             Inversión=("Inversión (€)", "sum"),
             Leads=("Leads Válidos", "sum"),
             Entrevistas=("Entrevistas", "sum"),
             Matriculados=("Matriculados", "sum"),
             Ingresos=("Ingresos (€)", "sum"),
-            Perdidos=("Perdidos", "sum"),
+            CosteEnt=("Coste Entrevista (€)", "mean"),
         )
         .reset_index()
     )
-    hist["ROAS"] = np.where(hist["Inversión"] > 0, hist["Ingresos"] / hist["Inversión"], np.nan)
-    hist["CPL"] = np.where(hist["Leads"] > 0, hist["Inversión"] / hist["Leads"], np.nan)
-    hist["_ord"] = hist["Semana_label"].str.replace("S", "").astype(int)
-    hist = hist.sort_values("_ord").drop(columns=["_ord"])
-    hist["ROAS"] = hist["ROAS"].apply(lambda x: f"{x:.2f}x" if not pd.isna(x) else "—")
-    hist["CPL"] = hist["CPL"].apply(lambda x: f"{x:.2f} €" if not pd.isna(x) else "—")
-    hist["Inversión"] = hist["Inversión"].apply(lambda x: f"{x:,.2f} €")
-    hist["Ingresos"] = hist["Ingresos"].apply(lambda x: f"{x:,.2f} €")
-    st.dataframe(hist.rename(columns={"Semana_label": "Semana"}), use_container_width=True)
+    agg["CPL"] = np.where(agg["Leads"] > 0, agg["Inversión"] / agg["Leads"], np.nan)
+    agg["ROAS"] = np.where(agg["Inversión"] > 0, agg["Ingresos"] / agg["Inversión"], np.nan)
+
+    st.markdown("---")
+
+    # ── 6 gráficas en grid 2×3 ───────────────────────────────────────────────
+    metrics = [
+        ("CPL",         "CPL — Coste por Lead (€)",         "€"),
+        ("ROAS",        "ROAS — Retorno sobre Inversión",    "x"),
+        ("Leads",       "Leads Válidos",                     ""),
+        ("Entrevistas", "Entrevistas realizadas",            ""),
+        ("CosteEnt",    "Coste por Entrevista (€)",          "€"),
+        ("Ingresos",    "Ingresos generados (€)",            "€"),
+    ]
+
+    for i in range(0, len(metrics), 2):
+        c1, c2 = st.columns(2)
+        for col_ui, (col_data, title, fmt) in zip([c1, c2], metrics[i:i+2]):
+            with col_ui:
+                fig = _chart_evolucion_metric(agg, col_data, title, selected, fmt)
+                st.plotly_chart(fig, use_container_width=True,
+                                config={"displayModeBar": False},
+                                key=f"evol_{col_data}")
+
+    # ── Tabla de tendencias ───────────────────────────────────────────────────
+    st.markdown("---")
+    section("Tabla de tendencias — última semana vs semana anterior")
+    st.caption("🟢 Mejora · 🔴 Empeora · ⚪ Sin cambio o datos insuficientes")
+
+    rows = []
+    for camp in selected:
+        d = agg[agg["ID_Campaña"] == camp].sort_values("Semana")
+        if len(d) < 2:
+            continue
+        last, prev = d.iloc[-1], d.iloc[-2]
+
+        def trend(new, old, lower_better=False):
+            if pd.isna(new) or pd.isna(old) or old == 0:
+                return "⚪"
+            better = new < old if lower_better else new > old
+            return "🟢" if better else "🔴"
+
+        rows.append({
+            "Campaña": camp,
+            f"CPL S{int(last.Semana)}": f"{last.CPL:.1f} €" if not pd.isna(last.CPL) else "—",
+            "CPL ↗": trend(last.CPL, prev.CPL, lower_better=True),
+            f"ROAS S{int(last.Semana)}": f"{last.ROAS:.2f}x" if not pd.isna(last.ROAS) else "—",
+            "ROAS ↗": trend(last.ROAS, prev.ROAS),
+            f"Leads S{int(last.Semana)}": int(last.Leads),
+            "Leads ↗": trend(last.Leads, prev.Leads),
+            f"Ingresos S{int(last.Semana)}": f"{last.Ingresos:,.0f} €",
+            "Ingresos ↗": trend(last.Ingresos, prev.Ingresos),
+        })
+
+    if rows:
+        st.dataframe(pd.DataFrame(rows).set_index("Campaña"), use_container_width=True)
+    else:
+        st.info("Se necesitan al menos 2 semanas de datos para calcular tendencias.")
+
+    # ── Heatmap ───────────────────────────────────────────────────────────────
+    st.markdown("---")
+    section("Heatmap — Rendimiento Semanal por Campaña")
+    hm_metric = st.selectbox("Métrica heatmap", ["CPL (€)", "Leads Válidos", "Entrevistas", "ROAS"], key="hm")
+    fig_hm = chart_heatmap_campanas(df, hm_metric if hm_metric != "ROAS" else "ROAS")
+    if fig_hm:
+        st.caption("Verde = valor bajo (mejor para CPL) / Rojo = valor alto.")
+        st.plotly_chart(fig_hm, use_container_width=True, config={"displayModeBar": False}, key="heatmap_campanas")
 
 
 def tab_perdidas(df: pd.DataFrame):
@@ -817,27 +1095,25 @@ def tab_perdidas(df: pd.DataFrame):
     c1, c2 = st.columns([1, 1])
     with c1:
         section("Embudo de Conversión Global")
-        st.plotly_chart(chart_embudo(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_embudo(df), use_container_width=True, config={"displayModeBar": False}, key="embudo")
     with c2:
         section("Motivos de Pérdida")
         fig_loss = chart_motivos_perdida(df)
         if fig_loss:
-            st.plotly_chart(fig_loss, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig_loss, use_container_width=True, config={"displayModeBar": False}, key="motivos_perdida")
         else:
             st.info("Sin datos de motivos de pérdida para este filtro.")
 
     section("Pérdidas semanales vs Entrevistas vs Matrículas")
-    st.plotly_chart(chart_perdida_por_semana(df), use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(chart_perdida_por_semana(df), use_container_width=True, config={"displayModeBar": False}, key="perdida_semana")
 
     section("Análisis de pérdidas por campaña")
-    loss_sum = df.groupby("ID_Campaña").agg(
-        Leads=("Leads Válidos", "sum"),
-        Perdidos=("Perdidos", "sum"),
-        No_Valido=("No válido", "sum"),
-        Precio=("No tiene dinero", "sum"),
-        Competencia=("Matriculado en otra escuela", "sum"),
-        Ilocalizado=("Ilocalizado", "sum"),
-    ).reset_index()
+    _agg = {"Leads": ("Leads Válidos", "sum"), "Perdidos": ("Perdidos", "sum")}
+    for alias, col in [("No_Valido", "No válido"), ("Precio", "No tiene dinero"),
+                       ("Competencia", "Matriculado en otra escuela"), ("Ilocalizado", "Ilocalizado")]:
+        if col in df.columns:
+            _agg[alias] = (col, "sum")
+    loss_sum = df.groupby("ID_Campaña").agg(**_agg).reset_index()
     loss_sum["% Pérdida"] = np.where(
         loss_sum["Leads"] > 0,
         loss_sum["Perdidos"] / loss_sum["Leads"] * 100,
@@ -860,6 +1136,44 @@ def tab_perdidas(df: pd.DataFrame):
             kpi_card("🎓", "Matriculados", fmt_num(org["Matriculados"].sum()), "orgánico")
         with oc4:
             kpi_card("💵", "Ingresos Org.", fmt_eur(org["Ingresos (€)"].sum()), "sin inversión directa")
+
+    # Análisis Google Ads
+    goog = df[df["Canal"].str.contains("google", case=False, na=False)]
+    if not goog.empty:
+        section("Google Ads — Métricas Clave")
+        gc1, gc2, gc3, gc4, gc5 = st.columns(5)
+        with gc1:
+            kpi_card("🔍", "Inversión", fmt_eur(goog["Inversión (€)"].sum()), "Google Ads")
+        with gc2:
+            kpi_card("👥", "Leads Válidos", fmt_num(goog["Leads Válidos"].sum()), "total")
+        with gc3:
+            inv_g = goog["Inversión (€)"].sum()
+            leads_g = goog["Leads Válidos"].sum()
+            cpl_g = inv_g / leads_g if leads_g > 0 else None
+            kpi_card("💶", "CPL Medio", fmt_eur(cpl_g) if cpl_g else "—", "coste por lead")
+        with gc4:
+            kpi_card("🎓", "Matriculados", fmt_num(goog["Matriculados"].sum()), "Google Ads")
+        with gc5:
+            kpi_card("💵", "Ingresos", fmt_eur(goog["Ingresos (€)"].sum()), "Google Ads")
+
+    # Análisis Meta Ads
+    meta = df[df["Canal"].str.contains("meta|fb|ig", case=False, na=False)]
+    if not meta.empty:
+        section("Meta Ads — Métricas Clave")
+        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+        with mc1:
+            kpi_card("📘", "Inversión", fmt_eur(meta["Inversión (€)"].sum()), "Meta Ads")
+        with mc2:
+            kpi_card("👥", "Leads Válidos", fmt_num(meta["Leads Válidos"].sum()), "total")
+        with mc3:
+            inv_m = meta["Inversión (€)"].sum()
+            leads_m = meta["Leads Válidos"].sum()
+            cpl_m = inv_m / leads_m if leads_m > 0 else None
+            kpi_card("💶", "CPL Medio", fmt_eur(cpl_m) if cpl_m else "—", "coste por lead")
+        with mc4:
+            kpi_card("🎓", "Matriculados", fmt_num(meta["Matriculados"].sum()), "Meta Ads")
+        with mc5:
+            kpi_card("💵", "Ingresos", fmt_eur(meta["Ingresos (€)"].sum()), "Meta Ads")
 
 
 def tab_datos(df: pd.DataFrame):

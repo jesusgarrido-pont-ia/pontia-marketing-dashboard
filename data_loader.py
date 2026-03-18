@@ -13,22 +13,35 @@ import pandas as pd
 import streamlit as st
 from io import StringIO
 
-EXCEL_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "Seguimiento_Campanas_Pontia.xlsx")
-SHEET_DATA = "Datos"
+EXCEL_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "Seguimiento_Campanas_Semanal.xlsx")
+SHEET_DATA = "02_DATA_LOG"
+
+# Mapeo de nombres de columna del Google Sheet → nombres esperados por el dashboard
+# (el Google Sheet no tiene acentos/€ en algunos nombres)
+_COLUMN_REMAP = {
+    "Fecha de análisis":      "Fecha de Análisis",
+    "Fecha de Analisis":      "Fecha de Análisis",
+    "Inversion":              "Inversión (€)",
+    "Inversión":              "Inversión (€)",
+    "Leads Validos":          "Leads Válidos",
+    "CPL":                    "CPL (€)",
+    "Coste Entrevista":       "Coste Entrevista (€)",
+    "Ingresos":               "Ingresos (€)",
+    "No interesa(Otros)":     "No interesa (Otros)",
+    "No interesa (Otros)":    "No interesa (Otros)",  # ya correcto
+    "Matriculado en otra":    "Matriculado en otra escuela",
+}
 
 
 # ── Carga principal ────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data() -> pd.DataFrame:
-    """Devuelve el DataFrame de campañas limpio y enriquecido."""
+    """Devuelve el DataFrame de campañas limpio y enriquecido. Fuente: Google Sheets."""
     spreadsheet_id = _get_spreadsheet_id()
-    if spreadsheet_id:
-        try:
-            return _from_sheets(spreadsheet_id)
-        except Exception:
-            pass  # Fallback a Excel
-    return _from_excel()
+    if not spreadsheet_id:
+        raise RuntimeError("Google Sheets no configurado. Añade spreadsheet_id en secrets.")
+    return _from_sheets(spreadsheet_id)
 
 
 def _get_spreadsheet_id() -> str:
@@ -40,20 +53,60 @@ def _get_spreadsheet_id() -> str:
 
 
 def _from_sheets(spreadsheet_id: str) -> pd.DataFrame:
-    sheet_name = "Datos"
-    url = (
-        f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-        f"/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-    )
+    try:
+        gs = st.secrets.get("google_sheets", {})
+        gid = gs.get("sheet_gid", "")
+        sheet_name = gs.get("sheet_name", "02_DATA_LOG")
+    except Exception:
+        gid = ""
+        sheet_name = "02_DATA_LOG"
+
+    if gid:
+        url = (
+            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+            f"/gviz/tq?tqx=out:csv&gid={gid}"
+        )
+    else:
+        url = (
+            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+            f"/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+        )
+
     resp = requests.get(url, timeout=15)
     resp.raise_for_status()
-    df = pd.read_csv(StringIO(resp.text), header=1)
+
+    df = pd.read_csv(StringIO(resp.text), header=0)
+    df.columns = [c.strip() for c in df.columns]
+    df = df.rename(columns=_COLUMN_REMAP)
+    df = _clean_euro_columns(df)
+
     return _process(df)
+
+
+def _clean_euro_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Limpia columnas con formato monetario europeo de Google Sheets.
+    Maneja tanto '120,33 €' → 120.33 como '1.500,00 €' → 1500.0
+    """
+    for col in df.select_dtypes(include="object").columns:
+        s = df[col].astype(str).str.strip().str.replace(r"[€%]", "", regex=True).str.strip()
+        # Formato europeo: el punto es separador de miles, la coma es decimal
+        # Ejemplo: "1.500,00" → quitar punto de miles → "1500,00" → "1500.00"
+        has_comma = s.str.contains(",", na=False)
+        s = s.where(~has_comma, s.str.replace(".", "", regex=False))
+        s = s.str.replace(",", ".", regex=False)
+        numeric = pd.to_numeric(s, errors="coerce")
+        if df[col].notna().sum() > 0:
+            ratio = numeric.notna().sum() / df[col].notna().sum()
+            if ratio >= 0.4:
+                df[col] = numeric
+    return df
 
 
 def _from_excel() -> pd.DataFrame:
     path = os.path.abspath(EXCEL_PATH)
-    df = pd.read_excel(path, sheet_name=SHEET_DATA, header=1)
+    df = pd.read_excel(path, sheet_name=SHEET_DATA, header=0)
+    df.columns = [c.strip() for c in df.columns]
+    df = df.rename(columns=_COLUMN_REMAP)
     return _process(df)
 
 
@@ -65,7 +118,7 @@ def _process(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["ID_Campaña"].astype(str).str.strip() != ""]
 
     # Fechas y semana
-    df["Fecha de Análisis"] = pd.to_datetime(df["Fecha de Análisis"], errors="coerce")
+    df["Fecha de Análisis"] = pd.to_datetime(df["Fecha de Análisis"], errors="coerce", dayfirst=True)
     df = df.dropna(subset=["Fecha de Análisis"])
 
     df["Semana"] = pd.to_numeric(df["Semana"], errors="coerce").fillna(0).astype(int)
@@ -99,11 +152,14 @@ def _process(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # % Alta Intención recalculado cuando falta
+    if "% Alta Intención" not in df.columns:
+        df["% Alta Intención"] = np.nan
     mask = df["% Alta Intención"].isna() & (df["Leads Válidos"].fillna(0) > 0)
-    df.loc[mask, "% Alta Intención"] = (
-        (df.loc[mask, "Consideración"].fillna(0) + df.loc[mask, "Decisión"].fillna(0))
-        / df.loc[mask, "Leads Válidos"]
-    )
+    if mask.any() and "Consideración" in df.columns and "Decisión" in df.columns:
+        df.loc[mask, "% Alta Intención"] = (
+            (df.loc[mask, "Consideración"].fillna(0) + df.loc[mask, "Decisión"].fillna(0))
+            / df.loc[mask, "Leads Válidos"]
+        )
 
     # Conv. Lead→Matrícula
     df["Conv. Lead→Mat."] = np.where(

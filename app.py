@@ -64,22 +64,33 @@ CHART_PALETTE = [
     "#00BCD4", "#FF80AB", "#FFB74D", "#81C784",
 ]
 
+LEGEND_BASE = dict(
+    bgcolor="rgba(14,26,38,0.8)",
+    bordercolor=C["border"],
+    borderwidth=1,
+    font=dict(color="#FFFFFF", size=11),
+)
+
+AXIS_BASE = dict(gridcolor=C["border"], linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"])
+
 PLOT_BASE = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(22,37,53,0.4)",
     font=dict(family="Manrope, sans-serif", color="#FFFFFF", size=12),
     title_font=dict(family="Manrope, sans-serif", color=C["yellow"], size=14),
-    legend=dict(
-        bgcolor="rgba(14,26,38,0.8)",
-        bordercolor=C["border"],
-        borderwidth=1,
-        font=dict(color="#FFFFFF", size=11),
-    ),
-    xaxis=dict(gridcolor=C["border"], linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"]),
-    yaxis=dict(gridcolor=C["border"], linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"]),
+    legend=LEGEND_BASE,
     margin=dict(l=10, r=10, t=40, b=10),
     hoverlabel=dict(bgcolor=C["card"], bordercolor=C["border"], font_family="Manrope", font_color="#FFFFFF"),
 )
+
+def _base(fig, title="", **axis_kwargs):
+    """Aplica PLOT_BASE + ejes por defecto + overrides opcionales."""
+    fig.update_layout(**PLOT_BASE, title_text=title, **axis_kwargs)
+    if "xaxis" not in axis_kwargs:
+        fig.update_xaxes(**AXIS_BASE)
+    if "yaxis" not in axis_kwargs:
+        fig.update_yaxes(**AXIS_BASE)
+    return fig
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -282,7 +293,7 @@ def alert(text, kind="i"):
 # CHARTS
 # ══════════════════════════════════════════════════════════════════════════════
 def _apply_base(fig, title=""):
-    fig.update_layout(**PLOT_BASE, title_text=title)
+    _base(fig, title)
     return fig
 
 
@@ -321,8 +332,8 @@ def chart_evolucion_semanal(df: pd.DataFrame):
                        hovertemplate=f"<b>%{{x}}</b><br>{col}: %{{y}}<extra></extra>"),
             secondary_y=True,
         )
-    fig.update_layout(**PLOT_BASE, title_text="Evolución Semanal — Inversión & Resultados")
-    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
+    _base(fig, "Evolución Semanal — Inversión & Resultados")
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.15))
     fig.update_yaxes(title_text="Inversión (€)", secondary_y=False,
                      title_font=dict(color=C["sage"]), tickfont=dict(color=C["muted"]),
                      gridcolor=C["border"])
@@ -352,8 +363,8 @@ def chart_roas_campanas(df: pd.DataFrame):
     ))
     fig.add_vline(x=1, line_dash="dash", line_color=C["warn"], annotation_text="Break-even",
                   annotation_font=dict(color=C["warn"], size=10))
-    fig.update_layout(**PLOT_BASE, title_text="ROAS por Campaña",
-                      xaxis=dict(**PLOT_BASE["xaxis"], title="ROAS"),
+    _base(fig, "ROAS por Campaña",
+          xaxis=dict(**AXIS_BASE, title="ROAS"),
                       height=max(300, len(g) * 36 + 80))
     return fig
 
@@ -382,8 +393,8 @@ def chart_cpl_campanas(df: pd.DataFrame):
     ))
     fig.add_vline(x=15, line_dash="dash", line_color=C["ok"], annotation_text="Óptimo ≤15€",
                   annotation_font=dict(color=C["ok"], size=10))
-    fig.update_layout(**PLOT_BASE, title_text="CPL Medio por Campaña (€)",
-                      xaxis=dict(**PLOT_BASE["xaxis"], title="CPL (€)"),
+    _base(fig, "CPL Medio por Campaña (€)",
+          xaxis=dict(**AXIS_BASE, title="CPL (€)"),
                       height=max(300, len(g) * 36 + 80))
     return fig
 
@@ -408,7 +419,7 @@ def chart_distribucion_canal(df: pd.DataFrame):
                    hovertemplate=f"<b>%{{label}}</b><br>{title}: %{{value:,.0f}}<br>%{{percent}}<extra></extra>"),
             row=1, col=i,
         )
-    fig.update_layout(**PLOT_BASE, title_text="Distribución por Canal",
+    _base(fig, "Distribución por Canal",
                       showlegend=False, height=320)
     return fig
 
@@ -452,9 +463,9 @@ def chart_mapa_eficiencia(df: pd.DataFrame):
             customdata=sub["Inversión"],
         ))
     fig.add_vline(x=15, line_dash="dash", line_color=C["ok"], opacity=0.5)
-    fig.update_layout(**PLOT_BASE, title_text="Mapa de Eficiencia — CPL vs Leads (tamaño = Inversión)",
-                      xaxis=dict(**PLOT_BASE["xaxis"], title="CPL (€) — menor es mejor"),
-                      yaxis=dict(**PLOT_BASE["yaxis"], title="Leads Válidos"),
+    _base(fig, "Mapa de Eficiencia — CPL vs Leads (tamaño = Inversión)",
+          xaxis=dict(**AXIS_BASE, title="CPL (€) — menor es mejor"),
+          yaxis=dict(**AXIS_BASE, title="Leads Válidos"),
                       height=480)
     return fig
 
@@ -482,9 +493,9 @@ def chart_alta_intencion(df: pd.DataFrame):
         hover_data={"Leads": True},
     )
     fig.update_traces(line_width=2.5, marker_size=7)
-    fig.update_layout(**PLOT_BASE, title_text="% Leads de Alta Intención por Semana y Canal",
-                      yaxis=dict(**PLOT_BASE["yaxis"], title="% Alta Intención", ticksuffix="%"))
-    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2))
+    _base(fig, "% Leads de Alta Intención por Semana y Canal",
+          yaxis=dict(**AXIS_BASE, title="% Alta Intención", ticksuffix="%"))
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.2))
     return fig
 
 
@@ -508,7 +519,7 @@ def chart_embudo(df: pd.DataFrame):
         connector=dict(line=dict(color=C["border"], width=1)),
         hovertemplate="<b>%{y}</b><br>Total: %{x}<br>Del total: %{percentInitial}<extra></extra>",
     ))
-    fig.update_layout(**PLOT_BASE, title_text="Embudo de Conversión Global", height=320)
+    _base(fig, "Embudo de Conversión Global", height=320)
     return fig
 
 
@@ -547,7 +558,7 @@ def chart_motivos_perdida(df: pd.DataFrame):
         hovertemplate="<b>%{label}</b><br>Cantidad: %{value}<br>%{percent}<extra></extra>",
         pull=[0.04 if v == max(vals) else 0 for v in vals],
     ))
-    fig.update_layout(**PLOT_BASE, title_text="Motivos de Pérdida de Leads", height=350, showlegend=False)
+    _base(fig, "Motivos de Pérdida de Leads", height=350, showlegend=False)
     return fig
 
 
@@ -568,8 +579,8 @@ def chart_heatmap_campanas(df: pd.DataFrame, metric="CPL (€)"):
         hovertemplate="<b>%{y}</b><br>Semana: %{x}<br>Valor: %{z:.2f}<extra></extra>",
         colorbar=dict(title=metric, tickfont=dict(color=C["muted"]), title_font=dict(color=C["muted"])),
     ))
-    fig.update_layout(**PLOT_BASE, title_text=f"Heatmap — {metric} por Campaña × Semana",
-                      yaxis=dict(**PLOT_BASE["yaxis"], tickfont=dict(size=10, color=C["muted"])),
+    _base(fig, f"Heatmap — {metric} por Campaña × Semana",
+          yaxis=dict(**AXIS_BASE, tickfont=dict(size=10, color=C["muted"])),
                       height=max(300, len(pivot) * 30 + 100))
     return fig
 
@@ -590,8 +601,8 @@ def chart_evolucion_campana(df: pd.DataFrame, metric="Leads Válidos"):
             marker=dict(size=6), connectgaps=True,
             hovertemplate=f"<b>{camp}</b><br>Semana: %{{x}}<br>{metric}: %{{y}}<extra></extra>",
         ))
-    fig.update_layout(**PLOT_BASE, title_text=f"Evolución de {metric} por Campaña", height=420)
-    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2))
+    _base(fig, f"Evolución de {metric} por Campaña", height=420)
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.2))
     return fig
 
 
@@ -612,9 +623,9 @@ def chart_perdida_por_semana(df: pd.DataFrame):
     fig = go.Figure()
     for col, color in [("Entrevistas", C["blue"]), ("Matriculados", C["ok"]), ("Perdidos", C["danger"])]:
         fig.add_trace(go.Bar(name=col, x=g["Semana_label"], y=g[col], marker_color=color, opacity=0.85))
-    fig.update_layout(**PLOT_BASE, title_text="Entrevistas, Matrículas y Pérdidas por Semana",
-                      barmode="group")
-    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
+    _base(fig, "Entrevistas, Matrículas y Pérdidas por Semana",
+          barmode="group")
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.15))
     return fig
 
 

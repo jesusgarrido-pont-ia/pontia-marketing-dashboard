@@ -698,15 +698,15 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
     # ── Gráficas ───────────────────────────────────────────────────────────
     section("Evolución Semanal")
     fig_evo = chart_evolucion_semanal(df_all)
-    st.plotly_chart(fig_evo, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig_evo, use_container_width=True, config={"displayModeBar": False}, key="evo_semanal")
 
     c1, c2 = st.columns(2)
     with c1:
         section("ROAS por Campaña")
-        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="roas_resumen")
     with c2:
         section("Distribución por Canal")
-        st.plotly_chart(chart_distribucion_canal(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_distribucion_canal(df), use_container_width=True, config={"displayModeBar": False}, key="dist_canal_resumen")
 
 
 def tab_campanas(df: pd.DataFrame):
@@ -759,17 +759,17 @@ def tab_campanas(df: pd.DataFrame):
     c1, c2 = st.columns(2)
     with c1:
         section("CPL por Campaña")
-        st.plotly_chart(chart_cpl_campanas(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_cpl_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="cpl_campanas")
     with c2:
         section("ROAS por Campaña")
-        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="roas_campanas")
 
     section("Mapa de Eficiencia — CPL vs Leads (tamaño del círculo = Inversión)")
     st.caption("Las campañas ideales están en la zona inferior-derecha: bajo CPL y muchos leads.")
-    st.plotly_chart(chart_mapa_eficiencia(df), use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(chart_mapa_eficiencia(df), use_container_width=True, config={"displayModeBar": False}, key="mapa_eficiencia")
 
     section("% Leads Alta Intención por Semana y Canal")
-    st.plotly_chart(chart_alta_intencion(df), use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(chart_alta_intencion(df), use_container_width=True, config={"displayModeBar": False}, key="alta_intencion")
 
 
 def tab_historico(df: pd.DataFrame):
@@ -784,7 +784,7 @@ def tab_historico(df: pd.DataFrame):
     section(f"Evolución de {metric} por Campaña")
     fig = chart_evolucion_campana(df, metric)
     if fig:
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False}, key="evolucion_campana")
     else:
         st.info("No hay datos suficientes para esta métrica.")
 
@@ -797,7 +797,7 @@ def tab_historico(df: pd.DataFrame):
             "Verde = valor bajo (mejor para CPL) / Rojo = valor alto. "
             "Las celdas en blanco indican que la campaña no tenía datos esa semana."
         )
-        st.plotly_chart(fig_hm, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig_hm, use_container_width=True, config={"displayModeBar": False}, key="heatmap_campanas")
 
     section("Resumen histórico agregado por semana")
     hist = (
@@ -828,17 +828,17 @@ def tab_perdidas(df: pd.DataFrame):
     c1, c2 = st.columns([1, 1])
     with c1:
         section("Embudo de Conversión Global")
-        st.plotly_chart(chart_embudo(df), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(chart_embudo(df), use_container_width=True, config={"displayModeBar": False}, key="embudo")
     with c2:
         section("Motivos de Pérdida")
         fig_loss = chart_motivos_perdida(df)
         if fig_loss:
-            st.plotly_chart(fig_loss, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig_loss, use_container_width=True, config={"displayModeBar": False}, key="motivos_perdida")
         else:
             st.info("Sin datos de motivos de pérdida para este filtro.")
 
     section("Pérdidas semanales vs Entrevistas vs Matrículas")
-    st.plotly_chart(chart_perdida_por_semana(df), use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(chart_perdida_por_semana(df), use_container_width=True, config={"displayModeBar": False}, key="perdida_semana")
 
     section("Análisis de pérdidas por campaña")
     loss_sum = df.groupby("ID_Campaña").agg(

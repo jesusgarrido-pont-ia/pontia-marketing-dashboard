@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────
+# PontIA Marketing Intelligence — Configuración de Acceso
+# ──────────────dd───────────────────────────────────────────────
+# Cambia la contraseña y añade/elimina correos autorizados.
+# En producción (Streamlit Cloud), usa el panel de "Secrets"
+# con el mismo formato que .streamlit/secrets.toml (ver README).
+# ─────────────────────────────────────────────────────────────
+
+auth:
+  password: "REDACTED"          # Contraseña compartida para todos los usuarios
+  authorized_emails:
+    - jesus.garrido@pontia.tech
+    -              # ← Sustituye por los correos reales del equipo
+    # - marketing@pontia.es
+    # - director@pontia.es
+
+# ─────────────────────────────────────────────────────────────
+# Google Sheets (rellena cuando tengas la URL del Sheet)
+# ─────────────────────────────────────────────────────────────
+google_sheets:
+  spreadsheet_id: ""   # Pega aquí el ID de tu Google Sheet (ver README)
+  sheet_name: "Datos"

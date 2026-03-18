@@ -321,8 +321,8 @@ def chart_evolucion_semanal(df: pd.DataFrame):
                        hovertemplate=f"<b>%{{x}}</b><br>{col}: %{{y}}<extra></extra>"),
             secondary_y=True,
         )
-    fig.update_layout(**PLOT_BASE, title_text="Evolución Semanal — Inversión & Resultados",
-                      legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
+    fig.update_layout(**PLOT_BASE, title_text="Evolución Semanal — Inversión & Resultados")
+    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
     fig.update_yaxes(title_text="Inversión (€)", secondary_y=False,
                      title_font=dict(color=C["sage"]), tickfont=dict(color=C["muted"]),
                      gridcolor=C["border"])
@@ -483,8 +483,8 @@ def chart_alta_intencion(df: pd.DataFrame):
     )
     fig.update_traces(line_width=2.5, marker_size=7)
     fig.update_layout(**PLOT_BASE, title_text="% Leads de Alta Intención por Semana y Canal",
-                      yaxis=dict(**PLOT_BASE["yaxis"], title="% Alta Intención", ticksuffix="%"),
-                      legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2))
+                      yaxis=dict(**PLOT_BASE["yaxis"], title="% Alta Intención", ticksuffix="%"))
+    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2))
     return fig
 
 
@@ -590,9 +590,8 @@ def chart_evolucion_campana(df: pd.DataFrame, metric="Leads Válidos"):
             marker=dict(size=6), connectgaps=True,
             hovertemplate=f"<b>{camp}</b><br>Semana: %{{x}}<br>{metric}: %{{y}}<extra></extra>",
         ))
-    fig.update_layout(**PLOT_BASE, title_text=f"Evolución de {metric} por Campaña",
-                      legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2),
-                      height=420)
+    fig.update_layout(**PLOT_BASE, title_text=f"Evolución de {metric} por Campaña", height=420)
+    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.2))
     return fig
 
 
@@ -614,7 +613,8 @@ def chart_perdida_por_semana(df: pd.DataFrame):
     for col, color in [("Entrevistas", C["blue"]), ("Matriculados", C["ok"]), ("Perdidos", C["danger"])]:
         fig.add_trace(go.Bar(name=col, x=g["Semana_label"], y=g[col], marker_color=color, opacity=0.85))
     fig.update_layout(**PLOT_BASE, title_text="Entrevistas, Matrículas y Pérdidas por Semana",
-                      barmode="group", legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
+                      barmode="group")
+    fig.update_layout(legend=dict(**PLOT_BASE["legend"], orientation="h", y=-0.15))
     return fig
 
 

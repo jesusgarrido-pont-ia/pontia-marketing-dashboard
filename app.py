@@ -6,7 +6,6 @@ Conectado a Google Sheets (o Excel local como fallback).
 """
 
 import base64
-import calendar
 import hashlib
 import os
 from datetime import date
@@ -768,11 +767,19 @@ def chart_heatmap_campanas(df: pd.DataFrame, metric="CPL (€)"):
     cols = sorted(pivot.columns, key=lambda x: int(x.replace("S", "")))
     pivot = pivot[cols]
 
+    # CPL, Coste: bajo=verde, alto=rojo (menor es mejor)
+    # ROAS, Leads, Entrevistas, Matriculados: bajo=rojo, alto=verde (mayor es mejor)
+    lower_is_better = metric in ("CPL (€)", "Coste Entrevista (€)")
+    if lower_is_better:
+        colorscale = [[0, C["ok"]], [0.5, C["warn"]], [1, C["danger"]]]
+    else:
+        colorscale = [[0, C["danger"]], [0.5, C["warn"]], [1, C["ok"]]]
+
     fig = go.Figure(go.Heatmap(
         z=pivot.values,
         x=pivot.columns.tolist(),
         y=pivot.index.tolist(),
-        colorscale=[[0, C["ok"]], [0.5, C["warn"]], [1, C["danger"]]],
+        colorscale=colorscale,
         hovertemplate="<b>%{y}</b><br>Semana: %{x}<br>Valor: %{z:.2f}<extra></extra>",
         colorbar=dict(title=metric, tickfont=dict(color=C["muted"]), title_font=dict(color=C["muted"])),
     ))
@@ -796,8 +803,12 @@ def chart_programa_canal(df: pd.DataFrame, benchmarks=None, metric="CPL (€)"):
         color_discrete_map=CHANNEL_COLORS,
         labels={"val": metric, "Programa": "Programa"},
     )
-    _base(fig, f"{metric} por Programa y Canal", height=420)
-    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.2))
+    _base(fig, f"{metric} por Programa y Canal", height=480)
+    fig.update_layout(
+        legend=dict(**LEGEND_BASE, orientation="h", y=1.08, x=0.5, xanchor="center"),
+        xaxis=dict(**AXIS_BASE, tickangle=-30),
+        margin=dict(l=10, r=10, t=60, b=120),
+    )
     return fig
 
 
@@ -1110,20 +1121,6 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame, benchmarks=None):
         deltas["ingresos"] = _delta_pct(ingresos, p_ingresos)
         deltas["roas"] = _delta_pct(roas, p_roas)
 
-    # ── Budget projection ────────────────────────────────────────────────────
-    budget_proj = None
-    try:
-        dates = df["Fecha de Análisis"].dropna()
-        if not dates.empty:
-            max_date = dates.max()
-            min_date = dates.min()
-            days_elapsed = max((max_date - min_date).days + 1, 1)
-            year_m, month_m = max_date.year, max_date.month
-            days_in_month = calendar.monthrange(year_m, month_m)[1]
-            budget_proj = inv / days_elapsed * days_in_month
-    except Exception:
-        pass
-
     # ── KPI cards as responsive grid ─────────────────────────────────────────
     cards = []
     cards.append(kpi_card("💰", "Inversión Total", fmt_eur(inv), "acumulado",
@@ -1150,11 +1147,6 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame, benchmarks=None):
     cards.append(kpi_card("📈", "ROAS Global", f"{roas:.2f}x" if roas else "—", "retorno inversión",
                           badge, f"≥3x bueno" if badge == "bg" else f"&lt;{b_roas['bad']}x negativo" if badge == "br" else "",
                           delta=deltas.get("roas"), return_html=True))
-    # Budget projection card
-    if budget_proj is not None:
-        cards.append(kpi_card("📅", "Proyección Mes", fmt_eur(budget_proj), "gasto estimado mensual",
-                              return_html=True))
-
     kpi_grid(cards)
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
@@ -1468,7 +1460,10 @@ def tab_historico(df: pd.DataFrame):
     hm_metric = st.selectbox("Métrica heatmap", ["CPL (€)", "Leads Válidos", "Entrevistas", "ROAS"], key="hm")
     fig_hm = chart_heatmap_campanas(df, hm_metric if hm_metric != "ROAS" else "ROAS")
     if fig_hm:
-        st.caption("Verde = valor bajo (mejor para CPL) / Rojo = valor alto.")
+        if hm_metric in ("CPL (€)", "Coste Entrevista (€)"):
+            st.caption("🟢 Verde = valor bajo (mejor) / 🔴 Rojo = valor alto (peor)")
+        else:
+            st.caption("🟢 Verde = valor alto (mejor) / 🔴 Rojo = valor bajo (peor)")
         st.plotly_chart(fig_hm, use_container_width=True, config={"displayModeBar": False}, key="heatmap_campanas")
 
 

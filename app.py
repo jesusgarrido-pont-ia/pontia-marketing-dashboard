@@ -190,10 +190,11 @@ a{color:#EE7015}
 .kpi-card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem .9rem;text-align:center;transition:all .25s;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#EE7015,#F59E0B)}
 .kpi-card:hover{border-color:#EE7015;transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.08)}
-.kpi-icon{font-size:1.3rem;margin-bottom:.25rem}
-.kpi-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:.35rem}
-.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:1.65rem;font-weight:600;color:#1F2937;line-height:1;margin-bottom:.25rem}
-.kpi-sub{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#9CA3AF}
+.kpi-icon{display:block;font-size:1.3rem;margin-bottom:.25rem}
+.kpi-label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:.35rem}
+.kpi-value{display:block;font-family:'IBM Plex Mono',monospace;font-size:1.65rem;font-weight:600;color:#1F2937;line-height:1;margin-bottom:.25rem}
+.kpi-sub{display:block;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#9CA3AF}
+.kpi-delta{display:block;font-size:.75rem;font-weight:700;margin-top:.2rem}
 .badge{display:inline-block;font-size:.62rem;font-weight:700;padding:.12rem .45rem;border-radius:20px;margin-top:.25rem}
 .bg{background:rgba(22,163,74,.1);color:#16A34A;border:1px solid rgba(22,163,74,.25)}
 .by{background:rgba(245,158,11,.1);color:#D97706;border:1px solid rgba(245,158,11,.25)}
@@ -418,25 +419,24 @@ def _color_badge(value, good_thresh, bad_thresh, invert=False):
 
 def kpi_card(icon, label, value, sub="", badge_class="", badge_text="", delta=None, return_html=False):
     """Render a KPI card. If return_html=True, returns the HTML string instead of rendering."""
-    badge_html = f'<div class="badge {badge_class}">{badge_text}</div>' if badge_class and badge_text else ""
+    badge_html = f'<span class="badge {badge_class}">{badge_text}</span>' if badge_class and badge_text else ""
     delta_html = ""
     if delta is not None and delta != "":
-        delta_cls = "kpi-delta-up" if not str(delta).startswith("-") and str(delta).replace("%","").replace("+","").replace(" ","") != "0" else "kpi-delta-down"
         if str(delta).startswith("-"):
             delta_cls = "kpi-delta-down"
-        elif str(delta).startswith("+") or (str(delta).replace("%","").replace(" ","").replace(",","").replace(".","").isdigit()):
+        else:
             delta_cls = "kpi-delta-up"
-        delta_html = f'<div class="kpi-delta {delta_cls}">{delta}</div>'
-    html = f"""
-        <div class="kpi-card">
-            <div class="kpi-icon">{icon}</div>
-            <div class="kpi-label">{label}</div>
-            <div class="kpi-value">{value}</div>
-            <div class="kpi-sub">{sub}</div>
-            {delta_html}
-            {badge_html}
-        </div>
-    """
+        delta_html = f'<span class="kpi-delta {delta_cls}">{delta}</span>'
+    html = (
+        f'<div class="kpi-card">'
+        f'<span class="kpi-icon">{icon}</span>'
+        f'<span class="kpi-label">{label}</span>'
+        f'<span class="kpi-value">{value}</span>'
+        f'<span class="kpi-sub">{sub}</span>'
+        f'{delta_html}'
+        f'{badge_html}'
+        f'</div>'
+    )
     if return_html:
         return html
     st.markdown(html, unsafe_allow_html=True)

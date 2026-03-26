@@ -196,14 +196,8 @@ a{color:#EE7015}
 /* ── Divider ──────────────────────────────── */
 .div{height:1px;background:linear-gradient(90deg,#E5E7EB,transparent);margin:.8rem 0}
 
-/* ── DataFrames (force light) ─────────────── */
+/* ── DataFrames ───────────────────────────── */
 .stDataFrame{border-radius:10px;overflow:hidden}
-.stDataFrame [data-testid="stDataFrameResizable"]{background:#FFFFFF!important}
-.stDataFrame iframe{filter:none!important}
-[data-testid="stDataFrame"]{background:#FFFFFF!important;border-radius:10px}
-/* Glide Data Grid (Streamlit dataframe component) */
-[data-testid="stDataFrame"] canvas+div{background:#FFFFFF!important}
-[data-testid="stDataFrame"] [role="grid"]{background:#FFFFFF!important}
 
 /* ── Force ALL text to dark on light bg ──── */
 .stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#1F2937!important}

@@ -257,11 +257,10 @@ a{color:#EE7015}
 /* ── Divider ──────────────────────────────── */
 .div{height:1px;background:linear-gradient(90deg,#E5E7EB,transparent);margin:.8rem 0}
 
-/* ── Charts & DataFrames (card frame) ────── */
-[data-testid="stVegaLiteChart"],
-/* ── Charts & DataFrames (card frame) ────── */
-.stPlotlyChart{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem;overflow:visible}
-.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem}
+/* ── Charts (card frame via outline — no scroll) ── */
+.stPlotlyChart{outline:1px solid #E5E7EB;outline-offset:6px;border-radius:12px;margin:10px 0 16px}
+/* ── DataFrames ───────────────────────────── */
+.stDataFrame{border-radius:10px;overflow:hidden}
 
 /* ── Force ALL text to dark on light bg ──── */
 .stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#0A0909!important}

@@ -205,16 +205,21 @@ def get_filter_options(df: pd.DataFrame) -> dict:
     }
 
 
-def apply_filters(df: pd.DataFrame, semana: str, canal: str, programa: str, semanas_range=None) -> pd.DataFrame:
+def apply_filters(df: pd.DataFrame, semana: str, canal=None, programa=None, semanas_range=None) -> pd.DataFrame:
     out = df.copy()
     if semanas_range is not None:
-        # Range mode: filter by list of week numbers
-        out = out[out["Semana"].isin(semanas_range)]
+        out = out[out["Semana"].isin([float(s) for s in semanas_range])]
     elif semana and semana != "Todas":
         num = int(semana.replace("S", ""))
         out = out[out["Semana"] == num]
-    if canal and canal != "Todos":
+    # Canal: accept string (legacy) or list
+    if isinstance(canal, list) and canal:
+        out = out[out["Canal"].isin(canal)]
+    elif isinstance(canal, str) and canal and canal != "Todos":
         out = out[out["Canal"] == canal]
-    if programa and programa != "Todos":
+    # Programa: accept string (legacy) or list
+    if isinstance(programa, list) and programa:
+        out = out[out["Programa"].isin(programa)]
+    elif isinstance(programa, str) and programa and programa != "Todos":
         out = out[out["Programa"] == programa]
     return out

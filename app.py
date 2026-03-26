@@ -875,9 +875,14 @@ def _clasificar_campana(cpl, roas, leads, inv, benchmarks=None):
 
 
 def panel_decisiones(df: pd.DataFrame, benchmarks=None):
-    """Panel de decisiones con semáforo — para la reunión semanal."""
+    """Panel de decisiones con semáforo — solo canales de pago (excluye orgánico/SEO)."""
+    # Excluir orgánico/SEO — estas decisiones son para campañas de pago
+    df_pago = df[~df["Canal"].str.contains("orgánico|seo|organic", case=False, na=False)]
+    if df_pago.empty:
+        st.info("No hay campañas de pago en el filtro seleccionado.")
+        return None
     g = (
-        df.groupby("ID_Campaña")
+        df_pago.groupby("ID_Campaña")
         .agg(
             Canal=("Canal", "first"),
             Leads=("Leads Válidos", "sum"),
@@ -1181,7 +1186,8 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame, benchmarks=None):
                         st.warning("No se pudo generar el resumen.")
 
     # ── Panel de Decisiones ────────────────────────────────────────────────
-    section("Decisiones de la Semana")
+    section("Decisiones de la Semana — Campañas de pago")
+    st.caption("Solo campañas de pago (excluye orgánico/SEO). Foco: ¿qué pausar, revisar o escalar?")
     panel_decisiones(df, benchmarks)
 
     # ── Alertas automáticas ────────────────────────────────────────────────
@@ -1636,8 +1642,8 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
             st.sidebar.info(f"Solo hay una semana disponible: S{semanas_num[0]}")
             semanas_range = semanas_num
 
-    canal = st.sidebar.selectbox("Canal", opts["canales"], index=0)
-    programa = st.sidebar.selectbox("Programa", opts["programas"], index=0)
+    canales_sel = st.sidebar.multiselect("Canal", opts["canales"][1:], default=[], placeholder="Todos")
+    programas_sel = st.sidebar.multiselect("Programa", opts["programas"][1:], default=[], placeholder="Todos")
 
     # Campaign search (Phase 2B)
     search_campana = st.sidebar.text_input("🔍 Buscar campaña", placeholder="Nombre...", key="search_campana")
@@ -1645,7 +1651,9 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     st.sidebar.markdown("---")
 
     # Estadísticas rápidas
-    df_f = apply_filters(df, semana, canal, programa, semanas_range=semanas_range)
+    df_f = apply_filters(df, semana, canal=canales_sel if canales_sel else None,
+                         programa=programas_sel if programas_sel else None,
+                         semanas_range=semanas_range)
     # Apply campaign search filter
     if search_campana and search_campana.strip():
         df_f = df_f[df_f["ID_Campaña"].str.contains(search_campana.strip(), case=False, na=False)]
@@ -1736,6 +1744,15 @@ def main():
         tab_perdidas(df_filtered)
     with t5:
         tab_datos(df_filtered)
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="text-align:center;padding:2rem 0 1rem;margin-top:2rem;'
+        'border-top:1px solid #E5E7EB;font-size:.75rem;color:#9CA3AF">'
+        'Hecho con ❤️ por Jesús para el equipo de PontIA'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":

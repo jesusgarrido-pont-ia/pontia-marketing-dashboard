@@ -259,8 +259,9 @@ a{color:#EE7015}
 
 /* ── Charts & DataFrames (card frame) ────── */
 [data-testid="stVegaLiteChart"],
-.stPlotlyChart{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:1.2rem 1rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.8rem}
-.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.8rem;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden;margin-bottom:.8rem}
+/* ── Charts & DataFrames (card frame) ────── */
+.stPlotlyChart>div{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:1rem .8rem .5rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem}
+.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.5rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem}
 
 /* ── Force ALL text to dark on light bg ──── */
 .stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#0A0909!important}
@@ -706,26 +707,24 @@ def chart_alta_intencion(df: pd.DataFrame):
 
 @st.cache_data
 def chart_embudo(df: pd.DataFrame):
-    """Embudo de conversión global."""
+    """Embudo de conversión global (sin Contactos — solo leads cualificados en adelante)."""
     totals = {
-        "Contactos":      df["Contactos"].sum(),
         "Leads Válidos":  df["Leads Válidos"].sum(),
         "Entrevistas":    df["Entrevistas"].sum(),
         "Matriculados":   df["Matriculados"].sum(),
     }
     labels = list(totals.keys())
     values = list(totals.values())
-    pcts = [f"{v/values[0]*100:.1f}%" if values[0] > 0 else "" for v in values]
 
     fig = go.Figure(go.Funnel(
         name="Embudo",
         y=labels, x=values,
         textinfo="value+percent initial",
-        marker_color=[C["blue"], C["amber"], C["orange"], C["ok"]],
+        marker_color=[C["blue"], C["orange"], C["ok"]],
         connector=dict(line=dict(color=C["border"], width=1)),
         hovertemplate="<b>%{y}</b><br>Total: %{x}<br>Del total: %{percentInitial}<extra></extra>",
     ))
-    _base(fig, "Embudo de Conversión Global", height=320)
+    _base(fig, "Embudo de Conversión Global", height=300)
     return fig
 
 
@@ -1690,6 +1689,130 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# GUÍA DE USO
+# ══════════════════════════════════════════════════════════════════════════════
+def tab_guia():
+    """Tab 6: Guía paso a paso para sacar el máximo rendimiento al dashboard."""
+    st.markdown("""
+## Guía de uso del Dashboard de Marketing
+
+Esta guía te explica cómo recorrer el dashboard paso a paso para preparar
+la reunión semanal de marketing y tomar decisiones basadas en datos.
+
+---
+
+### Paso 1: Configura los filtros (sidebar izquierdo)
+
+1. **Modo de semana**: Usa *Semana individual* para analizar una semana concreta,
+   o *Rango de semanas* para ver tendencias acumuladas.
+2. **Canal**: Selecciona uno o varios canales (Google Ads, Meta Ads...)
+   para comparar su rendimiento. Déjalo vacío para ver todos.
+3. **Programa**: Filtra por programa formativo si quieres analizar uno concreto.
+4. **Buscar campaña**: Escribe parte del nombre para encontrar una campaña rápidamente.
+
+---
+
+### Paso 2: Resumen General — Vista rápida
+
+Empieza siempre por esta pestaña. Aquí ves de un vistazo:
+
+- **KPIs globales** con deltas respecto al periodo anterior (▲ subida / ▼ bajada).
+- **Panel de Decisiones** (solo campañas de pago):
+  - 🔴 **Pausar** — CPL muy alto o sin leads. Acción: pausar la campaña hoy.
+  - 🟡 **Revisar** — CPL elevado o ROAS bajo. Acción: optimizar creatividades, audiencias o pujas.
+  - 🟢 **Escalar** — Buen CPL y buen retorno. Acción: aumentar presupuesto.
+- **Alertas automáticas**: campañas sin leads o con CPL crítico.
+- **Evolución semanal**: ¿la inversión y los leads van al alza o a la baja?
+- **ROAS por campaña** y **Distribución por canal**: dónde se concentra el gasto y los resultados.
+
+> **Consejo para la reunión**: Empieza leyendo el panel de decisiones.
+> Las campañas en rojo son las que necesitan acción inmediata.
+
+---
+
+### Paso 3: Por Campaña — Análisis detallado
+
+En esta pestaña puedes:
+
+- **Tabla de rendimiento**: ver todas las campañas con semáforo de estado.
+  Los colores en CPL, ROAS y Conv. indican si van bien (verde), regular (amarillo) o mal (rojo).
+- **CPL y ROAS por campaña**: gráficos de barras para comparar visualmente.
+- **Mapa de eficiencia**: las campañas ideales están abajo a la derecha (bajo CPL + muchos leads).
+  El tamaño del círculo indica cuánto se ha invertido.
+- **Rendimiento por Programa y Canal**: ¿qué programa funciona mejor en cada canal?
+
+> **Consejo**: Ordena la tabla por CPL o ROAS para encontrar rápidamente
+> las campañas que peor o mejor rinden.
+
+---
+
+### Paso 4: Evolución Histórica — Tendencias
+
+Aquí puedes:
+
+- Seleccionar campañas concretas y comparar su evolución semana a semana.
+- Ver **6 métricas en paralelo**: CPL, ROAS, Leads, Entrevistas, Coste por Entrevista e Ingresos.
+- **Tabla de tendencias**: la última semana vs la anterior con indicadores de mejora/empeoramiento.
+- **Heatmap**: visión completa de todas las campañas × semanas. Los colores
+  se adaptan a la métrica (para CPL: verde = bajo = bueno; para ROAS: verde = alto = bueno).
+
+> **Consejo**: Usa esta pestaña para detectar campañas que empeoran
+> progresivamente — puede que necesiten un cambio de creative o audiencia.
+
+---
+
+### Paso 5: Análisis de Pérdidas — ¿Dónde se pierden leads?
+
+Esta pestaña te ayuda a entender:
+
+- **Embudo de conversión**: de Leads Válidos a Entrevistas a Matriculados.
+  ¿En qué paso se pierden más?
+- **Motivos de pérdida**: ¿precio, competencia, no interesa?
+  Si "precio" domina, quizá hay que revisar la propuesta de valor.
+- **Pérdidas semanales**: ¿la pérdida de leads está aumentando o disminuyendo?
+- **Canales específicos** (Orgánico, Google Ads, Meta Ads): métricas desglosadas.
+
+> **Consejo**: Si la tasa de conversión Lead→Matrícula está por debajo del 3%,
+> el problema puede no ser el marketing sino el proceso de venta.
+
+---
+
+### Paso 6: Datos — Exportación
+
+- Aquí puedes ver los datos en bruto y exportarlos a CSV.
+- Útil para hacer análisis adicionales en Excel o compartir datos con el equipo.
+
+---
+
+### Resumen del flujo para la reunión semanal
+
+| Orden | Acción | Pestaña |
+|-------|--------|---------|
+| 1 | Poner filtro en la última semana | Sidebar |
+| 2 | Revisar KPIs y deltas vs semana anterior | Resumen General |
+| 3 | Decidir qué pausar/revisar/escalar | Panel de Decisiones |
+| 4 | Profundizar en campañas problemáticas | Por Campaña |
+| 5 | Ver si los problemas son tendencia o puntuales | Evolución Histórica |
+| 6 | Entender por qué se pierden leads | Análisis de Pérdidas |
+| 7 | Exportar datos si es necesario | Datos |
+
+---
+
+### Umbrales de referencia
+
+Los semáforos del dashboard usan estos umbrales (configurables en `config.yaml`):
+
+| Métrica | 🟢 Bueno | 🟡 Revisar | 🔴 Pausar |
+|---------|----------|-----------|----------|
+| **CPL** | ≤ 15 € | 15-25 € | > 40 € |
+| **ROAS** | ≥ 2x | 1-2x | < 1x |
+| **Coste/Entrevista** | ≤ 60 € | 60-100 € | > 100 € |
+| **Conv. Lead→Matrícula** | ≥ 5% | 2-5% | < 2% |
+
+""")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
@@ -1739,12 +1862,13 @@ def main():
     benchmarks = _load_benchmarks()
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    t1, t2, t3, t4, t5 = st.tabs([
+    t1, t2, t3, t4, t5, t6 = st.tabs([
         "📊 Resumen General",
         "🎯 Por Campaña",
         "📈 Evolución Histórica",
         "🚨 Análisis de Pérdidas",
         "📋 Datos",
+        "📖 Guía de Uso",
     ])
 
     with t1:
@@ -1757,6 +1881,8 @@ def main():
         tab_perdidas(df_filtered)
     with t5:
         tab_datos(df_filtered)
+    with t6:
+        tab_guia()
 
     # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown(

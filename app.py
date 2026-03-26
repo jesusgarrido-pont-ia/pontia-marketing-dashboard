@@ -176,7 +176,7 @@ def inject_css():
 <style>
 /* ── Global ────────────────────────────────── */
 html,body,[class*="css"]{font-family:'Manrope',-apple-system,sans-serif!important;color:#0A0909!important}
-.stApp{background:#EFEEEA}
+.stApp{background:#FFFFFF}
 #MainMenu,footer,header{visibility:hidden}
 .block-container{padding-top:1.2rem;padding-bottom:1rem;max-width:1500px}
 a{color:#EE7015}

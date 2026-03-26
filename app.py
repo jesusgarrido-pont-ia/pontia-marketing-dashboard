@@ -32,22 +32,22 @@ st.set_page_config(
 # BRAND PALETTE
 # ══════════════════════════════════════════════════════════════════════════════
 C = {
-    "bg":      "#111E2D",
-    "bg2":     "#0E1A26",
-    "card":    "#162535",
-    "green":   "#173A32",
-    "yellow":  "#F6FAB2",
-    "amber":   "#BB812F",
+    "bg":      "#F5F7FA",
+    "bg2":     "#FFFFFF",
+    "card":    "#FFFFFF",
+    "green":   "#1B6B4A",
+    "yellow":  "#EE7015",
+    "amber":   "#D97706",
     "orange":  "#EE7015",
-    "blue":    "#5683D2",
-    "sage":    "#AABCA3",
-    "red":     "#6C0000",
-    "purple":  "#744A6E",
-    "ok":      "#4CAF50",
-    "warn":    "#FFC107",
-    "danger":  "#EF5350",
-    "muted":   "#8BA0B0",
-    "border":  "#1E3347",
+    "blue":    "#3B6FD4",
+    "sage":    "#5BA88C",
+    "red":     "#DC2626",
+    "purple":  "#7C3AED",
+    "ok":      "#16A34A",
+    "warn":    "#F59E0B",
+    "danger":  "#EF4444",
+    "muted":   "#6B7280",
+    "border":  "#E5E7EB",
 }
 
 CHANNEL_COLORS = {
@@ -59,28 +59,28 @@ CHANNEL_COLORS = {
 }
 
 CHART_PALETTE = [
-    C["blue"], C["orange"], C["yellow"], C["sage"],
-    C["amber"], C["purple"], "#EF5350", C["ok"],
-    "#00BCD4", "#FF80AB", "#FFB74D", "#81C784",
+    C["blue"], C["orange"], C["amber"], C["sage"],
+    C["purple"], "#00BCD4", C["ok"], "#FF80AB",
+    "#FFB74D", "#81C784", "#EF5350", "#7C3AED",
 ]
 
 LEGEND_BASE = dict(
-    bgcolor="rgba(14,26,38,0.8)",
+    bgcolor="rgba(255,255,255,0.95)",
     bordercolor=C["border"],
     borderwidth=1,
-    font=dict(color="#FFFFFF", size=11),
+    font=dict(color="#1F2937", size=11),
 )
 
-AXIS_BASE = dict(gridcolor=C["border"], linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"])
+AXIS_BASE = dict(gridcolor="#F0F0F0", linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"])
 
 PLOT_BASE = dict(
     paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(22,37,53,0.4)",
-    font=dict(family="Manrope, sans-serif", color="#FFFFFF", size=12),
-    title_font=dict(family="Manrope, sans-serif", color=C["yellow"], size=14),
+    plot_bgcolor="rgba(255,255,255,0)",
+    font=dict(family="Manrope, sans-serif", color="#1F2937", size=12),
+    title_font=dict(family="Manrope, sans-serif", color="#1F2937", size=14),
     legend=LEGEND_BASE,
     margin=dict(l=10, r=10, t=40, b=10),
-    hoverlabel=dict(bgcolor=C["card"], bordercolor=C["border"], font_family="Manrope", font_color="#FFFFFF"),
+    hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=C["border"], font_family="Manrope", font_color="#1F2937"),
 )
 
 def _base(fig, title="", **axis_kwargs):
@@ -104,73 +104,89 @@ def inject_css():
 
 <style>
 /* ── Global ────────────────────────────────── */
-html,body,[class*="css"]{font-family:'Manrope',-apple-system,sans-serif!important}
-.stApp{background:#111E2D}
+html,body,[class*="css"]{font-family:'Manrope',-apple-system,sans-serif!important;color:#1F2937!important}
+.stApp{background:#F5F7FA}
 #MainMenu,footer,header{visibility:hidden}
 .block-container{padding-top:1.2rem;padding-bottom:1rem;max-width:1500px}
-a{color:#F6FAB2}
+a{color:#EE7015}
 
 /* ── Sidebar ──────────────────────────────── */
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#0E1A26 0%,#0A1520 100%);border-right:1px solid #1E3347}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%);border-right:1px solid #E5E7EB}
 [data-testid="stSidebar"] .block-container{padding-top:.8rem}
+[data-testid="stSidebar"] *{color:#374151!important}
 
 /* ── Tabs ─────────────────────────────────── */
-.stTabs [data-baseweb="tab-list"]{background:#0E1A26;border-radius:10px;padding:4px;gap:4px;border:1px solid #1E3347;margin-bottom:.8rem}
-.stTabs [data-baseweb="tab"]{background:transparent;color:#8BA0B0;border-radius:7px;padding:.45rem 1rem;font-family:'Manrope',sans-serif;font-weight:500;font-size:.875rem;transition:all .2s;border:none}
-.stTabs [aria-selected="true"]{background:#173A32!important;color:#F6FAB2!important;font-weight:700}
+.stTabs [data-baseweb="tab-list"]{background:#FFFFFF;border-radius:10px;padding:4px;gap:4px;border:1px solid #E5E7EB;margin-bottom:.8rem}
+.stTabs [data-baseweb="tab"]{background:transparent;color:#6B7280;border-radius:7px;padding:.45rem 1rem;font-family:'Manrope',sans-serif;font-weight:500;font-size:.875rem;transition:all .2s;border:none}
+.stTabs [aria-selected="true"]{background:#EE7015!important;color:#FFFFFF!important;font-weight:700}
 .stTabs [data-baseweb="tab-highlight"],.stTabs [data-baseweb="tab-border"]{display:none}
 
 /* ── KPI Cards ────────────────────────────── */
-.kpi-card{background:linear-gradient(135deg,#162535,#1A2D3D);border:1px solid #1E3347;border-radius:14px;padding:1.1rem .9rem;text-align:center;transition:all .25s;position:relative;overflow:hidden}
-.kpi-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#F6FAB2,#173A32)}
-.kpi-card:hover{border-color:#F6FAB2;transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.kpi-card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem .9rem;text-align:center;transition:all .25s;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#EE7015,#F59E0B)}
+.kpi-card:hover{border-color:#EE7015;transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.08)}
 .kpi-icon{font-size:1.3rem;margin-bottom:.25rem}
-.kpi-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8BA0B0;margin-bottom:.35rem}
-.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:1.65rem;font-weight:600;color:#F6FAB2;line-height:1;margin-bottom:.25rem}
-.kpi-sub{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#8BA0B0}
+.kpi-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:.35rem}
+.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:1.65rem;font-weight:600;color:#1F2937;line-height:1;margin-bottom:.25rem}
+.kpi-sub{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#9CA3AF}
 .badge{display:inline-block;font-size:.62rem;font-weight:700;padding:.12rem .45rem;border-radius:20px;margin-top:.25rem}
-.bg{background:rgba(76,175,80,.18);color:#4CAF50;border:1px solid rgba(76,175,80,.3)}
-.by{background:rgba(255,193,7,.18);color:#FFC107;border:1px solid rgba(255,193,7,.3)}
-.br{background:rgba(239,83,80,.18);color:#EF5350;border:1px solid rgba(239,83,80,.3)}
+.bg{background:rgba(22,163,74,.1);color:#16A34A;border:1px solid rgba(22,163,74,.25)}
+.by{background:rgba(245,158,11,.1);color:#D97706;border:1px solid rgba(245,158,11,.25)}
+.br{background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.25)}
 
 /* ── Section title ────────────────────────── */
-.sec{font-size:.8rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#F6FAB2;border-left:3px solid #F6FAB2;padding-left:.7rem;margin:1.2rem 0 .6rem}
+.sec{font-size:.8rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#EE7015;border-left:3px solid #EE7015;padding-left:.7rem;margin:1.2rem 0 .6rem}
 
 /* ── Alert boxes ──────────────────────────── */
 .al{border-radius:9px;padding:.75rem .9rem;font-size:.85rem;margin:.3rem 0;display:flex;align-items:flex-start;gap:.5rem;line-height:1.4}
-.al-w{background:rgba(238,112,21,.12);border:1px solid rgba(238,112,21,.4);color:#FFA07A}
-.al-d{background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.4);color:#EF9A9A}
-.al-s{background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.4);color:#A5D6A7}
-.al-i{background:rgba(86,131,210,.12);border:1px solid rgba(86,131,210,.4);color:#90CAF9}
+.al-w{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:#92400E}
+.al-d{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:#991B1B}
+.al-s{background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3);color:#166534}
+.al-i{background:rgba(59,111,212,.08);border:1px solid rgba(59,111,212,.3);color:#1E3A8A}
 
 /* ── Buttons ──────────────────────────────── */
-.stButton>button{background:linear-gradient(135deg,#173A32,#1E4A3E)!important;color:#F6FAB2!important;border:1px solid #1E3347!important;border-radius:8px!important;font-family:'Manrope',sans-serif!important;font-weight:700!important;font-size:.875rem!important;padding:.55rem 1.4rem!important;transition:all .2s!important}
-.stButton>button:hover{border-color:#F6FAB2!important;transform:translateY(-1px)}
+.stButton>button{background:linear-gradient(135deg,#EE7015,#F59E0B)!important;color:#FFFFFF!important;border:none!important;border-radius:8px!important;font-family:'Manrope',sans-serif!important;font-weight:700!important;font-size:.875rem!important;padding:.55rem 1.4rem!important;transition:all .2s!important;box-shadow:0 2px 8px rgba(238,112,21,.25)!important}
+.stButton>button:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(238,112,21,.35)!important}
 
 /* ── Inputs ───────────────────────────────── */
-.stSelectbox [data-baseweb="select"],.stMultiSelect [data-baseweb="select"]{background:#162535;border-color:#1E3347;border-radius:8px}
-.stTextInput input,.stPasswordInput input{background:#162535!important;border-color:#1E3347!important;border-radius:8px!important;color:#FFF!important}
-/* Multiselect tags: fondo verde oscuro, texto amarillo claro legible */
-.stMultiSelect [data-baseweb="tag"]{background:#173A32!important;border:1px solid #2A6B5A!important}
-.stMultiSelect [data-baseweb="tag"] span{color:#F6FAB2!important;font-weight:600}
+.stSelectbox [data-baseweb="select"],.stMultiSelect [data-baseweb="select"]{background:#FFFFFF;border-color:#E5E7EB;border-radius:8px}
+.stTextInput input,.stPasswordInput input{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#1F2937!important}
+.stMultiSelect [data-baseweb="tag"]{background:#FFF7ED!important;border:1px solid #FDBA74!important}
+.stMultiSelect [data-baseweb="tag"] span{color:#9A3412!important;font-weight:600}
 
 /* ── Login card ───────────────────────────── */
-.login-card{background:linear-gradient(135deg,#162535,#1A2D3D);border:1px solid #1E3347;border-radius:20px;padding:2.5rem 2rem;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.login-title{font-family:'Manrope',sans-serif;font-size:1.6rem;font-weight:800;color:#F6FAB2;text-align:center;margin-bottom:.2rem}
-.login-sub{font-size:.85rem;color:#8BA0B0;text-align:center;margin-bottom:1.8rem}
+.login-card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:20px;padding:2.5rem 2rem;box-shadow:0 20px 60px rgba(0,0,0,.08)}
+.login-title{font-family:'Manrope',sans-serif;font-size:1.6rem;font-weight:800;color:#EE7015;text-align:center;margin-bottom:.2rem}
+.login-sub{font-size:.85rem;color:#6B7280;text-align:center;margin-bottom:1.8rem}
 
 /* ── Sidebar brand ────────────────────────── */
-.sb-brand{text-align:center;padding:.5rem 0 1.2rem;border-bottom:1px solid #1E3347;margin-bottom:.8rem}
-.sb-title{font-family:'Manrope',sans-serif;font-size:1.35rem;font-weight:800;color:#F6FAB2}
-.sb-sub{font-size:.7rem;color:#8BA0B0;letter-spacing:.1em;text-transform:uppercase;margin-top:.1rem}
-.sb-user{background:rgba(23,58,50,.3);border:1px solid #1E3347;border-radius:8px;padding:.5rem .7rem;font-size:.78rem;color:#AABCA3;margin-bottom:.8rem}
+.sb-brand{text-align:center;padding:.5rem 0 1.2rem;border-bottom:1px solid #E5E7EB;margin-bottom:.8rem}
+.sb-title{font-family:'Manrope',sans-serif;font-size:1.35rem;font-weight:800;color:#EE7015}
+.sb-sub{font-size:.7rem;color:#6B7280;letter-spacing:.1em;text-transform:uppercase;margin-top:.1rem}
+.sb-user{background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:.5rem .7rem;font-size:.78rem;color:#9A3412;margin-bottom:.8rem}
 
 /* ── Divider ──────────────────────────────── */
-.div{height:1px;background:linear-gradient(90deg,#1E3347,transparent);margin:.8rem 0}
+.div{height:1px;background:linear-gradient(90deg,#E5E7EB,transparent);margin:.8rem 0}
 
 /* ── DataFrames ───────────────────────────── */
 .stDataFrame{border-radius:10px;overflow:hidden}
 </style>
+
+<script>
+// Disable browser password managers (iCloud Passwords popup)
+(function(){
+  function disableAutocomplete(){
+    document.querySelectorAll('input[type="password"]').forEach(function(el){
+      el.setAttribute('autocomplete','new-password');
+      el.setAttribute('data-lpignore','true');
+      el.setAttribute('data-1p-ignore','true');
+    });
+  }
+  disableAutocomplete();
+  var obs=new MutationObserver(disableAutocomplete);
+  obs.observe(document.body,{childList:true,subtree:true});
+})();
+</script>
 """,
         unsafe_allow_html=True,
     )
@@ -211,20 +227,53 @@ def show_login_page():
             <div style="text-align:center;margin-bottom:1.5rem">
                 <span style="font-size:2.8rem">🧠</span><br>
                 <span class="login-title">PontIA</span><br>
-                <span class="login-sub">Marketing Intelligence · Acceso privado</span>
+                <span class="login-sub">Marketing Intelligence &middot; Acceso privado</span>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        email = st.text_input("Correo electrónico", placeholder="tu@pontia.es", key="login_email")
-        password = st.text_input("Contraseña", type="password", placeholder="••••••••", key="login_pw")
-        if st.button("Entrar →", use_container_width=True):
-            if check_login(email, password):
-                st.session_state["authenticated"] = True
-                st.session_state["user_email"] = email
+
+        # Toggle entre login y recuperación de contraseña
+        if st.session_state.get("show_forgot_pw"):
+            st.markdown(
+                '<p style="font-size:.85rem;color:#6B7280;text-align:center;margin-bottom:1rem">'
+                'Introduce tu correo autorizado y te mostraremos la contraseña.</p>',
+                unsafe_allow_html=True,
+            )
+            forgot_email = st.text_input("Correo electrónico", placeholder="tu@pontia.es", key="forgot_email")
+            if st.button("Recuperar contraseña", use_container_width=True):
+                cfg = _load_auth_config()
+                authorized = [e.lower().strip() for e in cfg.get("authorized_emails", []) if e]
+                if forgot_email.lower().strip() in authorized:
+                    st.success(f"Tu contraseña es: **{cfg.get('password', '')}**")
+                else:
+                    st.error("Este correo no está autorizado. Contacta con el administrador.")
+            st.markdown(
+                '<div style="text-align:center;margin-top:.8rem">'
+                '<span style="font-size:.82rem;color:#6B7280">¿Ya la recuerdas?</span></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("← Volver al inicio de sesión", use_container_width=True, type="secondary"):
+                st.session_state["show_forgot_pw"] = False
                 st.rerun()
-            else:
-                st.error("Correo o contraseña incorrectos. Contacta con el administrador.")
+        else:
+            email = st.text_input("Correo electrónico", placeholder="tu@pontia.es", key="login_email")
+            password = st.text_input("Contraseña", type="password", placeholder="••••••••", key="login_pw")
+            if st.button("Entrar →", use_container_width=True):
+                if check_login(email, password):
+                    st.session_state["authenticated"] = True
+                    st.session_state["user_email"] = email
+                    st.rerun()
+                else:
+                    st.error("Correo o contraseña incorrectos. Contacta con el administrador.")
+            st.markdown(
+                '<div style="text-align:center;margin-top:.8rem"></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("¿Olvidaste tu contraseña?", use_container_width=True, type="secondary"):
+                st.session_state["show_forgot_pw"] = True
+                st.rerun()
+
         st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -320,7 +369,7 @@ def chart_evolucion_semanal(df: pd.DataFrame):
         secondary_y=False,
     )
     for col, color, dash in [
-        ("Leads", C["yellow"], "solid"),
+        ("Leads", C["amber"], "solid"),
         ("Entrevistas", C["orange"], "dot"),
         ("Matriculados", C["ok"], "dashdot"),
     ]:
@@ -334,11 +383,11 @@ def chart_evolucion_semanal(df: pd.DataFrame):
     _base(fig, "Evolución Semanal — Inversión & Resultados")
     fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.15))
     fig.update_yaxes(title_text="Inversión (€)", secondary_y=False,
-                     title_font=dict(color=C["sage"]), tickfont=dict(color=C["muted"]),
-                     gridcolor=C["border"])
+                     title_font=dict(color=C["muted"]), tickfont=dict(color=C["muted"]),
+                     gridcolor="#F0F0F0")
     fig.update_yaxes(title_text="Leads / Entrevistas / Matrículas", secondary_y=True,
-                     title_font=dict(color=C["yellow"]), tickfont=dict(color=C["muted"]),
-                     gridcolor=C["border"])
+                     title_font=dict(color=C["muted"]), tickfont=dict(color=C["muted"]),
+                     gridcolor="#F0F0F0")
     return fig
 
 
@@ -358,7 +407,7 @@ def chart_roas_campanas(df: pd.DataFrame):
         marker_color=colors,
         hovertemplate="<b>%{y}</b><br>ROAS: %{x:.2f}x<extra></extra>",
         text=g["ROAS"].apply(lambda x: f"{x:.2f}x"),
-        textposition="outside", textfont=dict(color=C["yellow"], size=11),
+        textposition="outside", textfont=dict(color="#1F2937", size=11),
     ))
     fig.add_vline(x=1, line_dash="dash", line_color=C["warn"], annotation_text="Break-even",
                   annotation_font=dict(color=C["warn"], size=10))
@@ -526,7 +575,7 @@ def chart_embudo(df: pd.DataFrame):
         name="Embudo",
         y=labels, x=values,
         textinfo="value+percent initial",
-        marker_color=[C["blue"], C["yellow"], C["orange"], C["ok"]],
+        marker_color=[C["blue"], C["amber"], C["orange"], C["ok"]],
         connector=dict(line=dict(color=C["border"], width=1)),
         hovertemplate="<b>%{y}</b><br>Total: %{x}<br>Del total: %{percentInitial}<extra></extra>",
     ))
@@ -649,20 +698,20 @@ def _clasificar_campana(cpl, roas, leads, inv):
     """Devuelve (icono, estado, color_borde, color_fondo, color_texto, color_nombre)."""
     if leads == 0 and inv > 0:
         return ("🔴", "PAUSAR",
-                "rgba(239,83,80,.4)", "rgba(239,83,80,.1)", "#EF5350", "#EF9A9A")
+                "rgba(239,68,68,.3)", "rgba(239,68,68,.06)", "#DC2626", "#991B1B")
     if pd.isna(cpl) or cpl is None:
-        return ("⚪", "S/D", "rgba(139,160,176,.3)", "rgba(139,160,176,.07)", "#8BA0B0", "#8BA0B0")
+        return ("⚪", "S/D", "rgba(107,114,128,.25)", "rgba(107,114,128,.05)", "#6B7280", "#6B7280")
     if cpl > 40:
         return ("🔴", "PAUSAR",
-                "rgba(239,83,80,.4)", "rgba(239,83,80,.1)", "#EF5350", "#EF9A9A")
+                "rgba(239,68,68,.3)", "rgba(239,68,68,.06)", "#DC2626", "#991B1B")
     if cpl > 25 or (not pd.isna(roas) and roas is not None and roas < 1):
         return ("🟡", "REVISAR",
-                "rgba(255,193,7,.4)", "rgba(255,193,7,.1)", "#FFC107", "#FFE082")
+                "rgba(245,158,11,.3)", "rgba(245,158,11,.06)", "#D97706", "#92400E")
     if cpl <= 15 and (pd.isna(roas) or roas is None or roas >= 2):
         return ("🟢", "ESCALAR",
-                "rgba(76,175,80,.4)", "rgba(76,175,80,.1)", "#4CAF50", "#A5D6A7")
+                "rgba(22,163,74,.3)", "rgba(22,163,74,.06)", "#16A34A", "#166534")
     return ("⚪", "MANTENER",
-            "rgba(86,131,210,.3)", "rgba(86,131,210,.07)", "#5683D2", "#90CAF9")
+            "rgba(59,111,212,.25)", "rgba(59,111,212,.05)", "#3B6FD4", "#1E3A8A")
 
 
 def panel_decisiones(df: pd.DataFrame):
@@ -695,30 +744,30 @@ def panel_decisiones(df: pd.DataFrame):
     # ── Cabecera ───────────────────────────────────────────────────────────
     st.markdown(
         f"""
-        <div style="background:linear-gradient(135deg,#0E1A26,#162535);
-        border:1px solid #1E3347;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1.2rem">
+        <div style="background:#FFFFFF;
+        border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1.2rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
           <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem">
             <span style="font-size:1.2rem">🎯</span>
-            <span style="font-family:Manrope,sans-serif;font-size:1rem;font-weight:800;color:#F6FAB2">
+            <span style="font-family:Manrope,sans-serif;font-size:1rem;font-weight:800;color:#1F2937">
               Panel de Decisiones — ¿Qué hacer esta semana?
             </span>
-            <span style="font-size:.72rem;color:#8BA0B0;margin-left:auto">{len(g)} campañas</span>
+            <span style="font-size:.72rem;color:#6B7280;margin-left:auto">{len(g)} campañas</span>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem">
-            <div style="background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.35);
+            <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);
             border-radius:10px;padding:.7rem;text-align:center">
-              <div style="font-size:1.8rem;font-weight:800;color:#EF5350">{len(pausar)}</div>
-              <div style="font-size:.68rem;font-weight:700;color:#EF9A9A;letter-spacing:.08em">🔴 PAUSAR</div>
+              <div style="font-size:1.8rem;font-weight:800;color:#DC2626">{len(pausar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#991B1B;letter-spacing:.08em">🔴 PAUSAR</div>
             </div>
-            <div style="background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.35);
+            <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);
             border-radius:10px;padding:.7rem;text-align:center">
-              <div style="font-size:1.8rem;font-weight:800;color:#FFC107">{len(revisar)}</div>
-              <div style="font-size:.68rem;font-weight:700;color:#FFE082;letter-spacing:.08em">🟡 REVISAR</div>
+              <div style="font-size:1.8rem;font-weight:800;color:#D97706">{len(revisar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#92400E;letter-spacing:.08em">🟡 REVISAR</div>
             </div>
-            <div style="background:rgba(76,175,80,.12);border:1px solid rgba(76,175,80,.35);
+            <div style="background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);
             border-radius:10px;padding:.7rem;text-align:center">
-              <div style="font-size:1.8rem;font-weight:800;color:#4CAF50">{len(escalar)}</div>
-              <div style="font-size:.68rem;font-weight:700;color:#A5D6A7;letter-spacing:.08em">🟢 ESCALAR</div>
+              <div style="font-size:1.8rem;font-weight:800;color:#16A34A">{len(escalar)}</div>
+              <div style="font-size:.68rem;font-weight:700;color:#166534;letter-spacing:.08em">🟢 ESCALAR</div>
             </div>
           </div>
         </div>
@@ -736,7 +785,7 @@ def panel_decisiones(df: pd.DataFrame):
             f'border-radius:9px;padding:.55rem .8rem;margin-bottom:.35rem">'
             f'<div style="font-weight:700;font-size:.82rem;color:{r["nombre_color"]};'
             f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{r["ID_Campaña"]}</div>'
-            f'<div style="font-size:.7rem;color:#8BA0B0;margin-top:.1rem">'
+            f'<div style="font-size:.7rem;color:#6B7280;margin-top:.1rem">'
             f'CPL: <b style="color:{r["texto"]}">{cpl_s}</b> · Leads: <b>{leads_s}</b>{roas_s}'
             f"</div></div>"
         )
@@ -744,13 +793,13 @@ def panel_decisiones(df: pd.DataFrame):
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown(
-            '<div style="font-size:.8rem;font-weight:700;color:#EF5350;margin-bottom:.5rem">'
+            '<div style="font-size:.8rem;font-weight:700;color:#DC2626;margin-bottom:.5rem">'
             "🔴 Pausar — CPL alto o sin leads</div>",
             unsafe_allow_html=True,
         )
         if pausar.empty:
             st.markdown(
-                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna campaña en zona roja ✓</div>',
+                '<div style="font-size:.78rem;color:#6B7280;font-style:italic">Ninguna campaña en zona roja ✓</div>',
                 unsafe_allow_html=True,
             )
         for _, r in pausar.iterrows():
@@ -758,13 +807,13 @@ def panel_decisiones(df: pd.DataFrame):
 
     with c2:
         st.markdown(
-            '<div style="font-size:.8rem;font-weight:700;color:#FFC107;margin-bottom:.5rem">'
+            '<div style="font-size:.8rem;font-weight:700;color:#D97706;margin-bottom:.5rem">'
             "🟡 Revisar — CPL elevado o ROAS < 1</div>",
             unsafe_allow_html=True,
         )
         if revisar.empty:
             st.markdown(
-                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna en zona amarilla ✓</div>',
+                '<div style="font-size:.78rem;color:#6B7280;font-style:italic">Ninguna en zona amarilla ✓</div>',
                 unsafe_allow_html=True,
             )
         for _, r in revisar.iterrows():
@@ -772,13 +821,13 @@ def panel_decisiones(df: pd.DataFrame):
 
     with c3:
         st.markdown(
-            '<div style="font-size:.8rem;font-weight:700;color:#4CAF50;margin-bottom:.5rem">'
+            '<div style="font-size:.8rem;font-weight:700;color:#16A34A;margin-bottom:.5rem">'
             "🟢 Escalar — Bajo CPL y buen retorno</div>",
             unsafe_allow_html=True,
         )
         if escalar.empty:
             st.markdown(
-                '<div style="font-size:.78rem;color:#8BA0B0;font-style:italic">Ninguna lista para escalar aún</div>',
+                '<div style="font-size:.78rem;color:#6B7280;font-style:italic">Ninguna lista para escalar aún</div>',
                 unsafe_allow_html=True,
             )
         for _, r in escalar.iterrows():
@@ -933,7 +982,10 @@ def tab_campanas(df: pd.DataFrame):
         .style
         .format({
             "Inversión €": lambda x: f"{x:,.0f} €" if not pd.isna(x) else "—",
+            "Leads": lambda x: f"{int(x):,}" if not pd.isna(x) else "—",
             "CPL €": lambda x: f"{x:.1f} €" if not pd.isna(x) else "—",
+            "Entrevistas": lambda x: f"{int(x):,}" if not pd.isna(x) else "—",
+            "Matrículas": lambda x: f"{int(x):,}" if not pd.isna(x) else "—",
             "Ingresos €": lambda x: f"{x:,.0f} €" if not pd.isna(x) else "—",
             "ROAS": lambda x: f"{x:.2f}x" if not pd.isna(x) else "—",
             "Conv. %": lambda x: f"{x:.1f}%" if not pd.isna(x) else "—",
@@ -1193,7 +1245,10 @@ def tab_datos(df: pd.DataFrame):
     display["Fecha de Análisis"] = display["Fecha de Análisis"].dt.strftime("%Y-%m-%d")
     display = display.rename(columns={"Semana_label": "Semana"})
 
-    st.dataframe(display, use_container_width=True, height=500)
+    int_cols = ["Contactos", "Leads Válidos", "Entrevistas", "Matriculados", "Perdidos"]
+    fmt_int = lambda x: f"{int(x):,}" if not pd.isna(x) else "—"
+    fmt_dict = {c: fmt_int for c in int_cols if c in display.columns}
+    st.dataframe(display.style.format(fmt_dict), use_container_width=True, height=500)
 
     csv = display.to_csv(index=False).encode("utf-8")
     st.download_button(
@@ -1239,10 +1294,10 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     df_f = apply_filters(df, semana, canal, programa)
     st.sidebar.markdown(
         f"""
-        <div style="font-size:.75rem;color:#8BA0B0;line-height:1.8">
-        📊 <b style="color:#F6FAB2">{len(df_f):,}</b> registros filtrados<br>
-        📅 <b style="color:#F6FAB2">{df_f['Semana'].nunique()}</b> semanas con datos<br>
-        🎯 <b style="color:#F6FAB2">{df_f['ID_Campaña'].nunique()}</b> campañas activas
+        <div style="font-size:.75rem;color:#6B7280;line-height:1.8">
+        📊 <b style="color:#EE7015">{len(df_f):,}</b> registros filtrados<br>
+        📅 <b style="color:#EE7015">{df_f['Semana'].nunique()}</b> semanas con datos<br>
+        🎯 <b style="color:#EE7015">{df_f['ID_Campaña'].nunique()}</b> campañas activas
         </div>
         """,
         unsafe_allow_html=True,
@@ -1265,7 +1320,7 @@ def main():
     # ── Auth ──────────────────────────────────────────────────────────────────
     if not st.session_state.get("authenticated"):
         show_login_page()
-        return
+        st.stop()
 
     # ── Load data ─────────────────────────────────────────────────────────────
     with st.spinner("Cargando datos…"):
@@ -1283,8 +1338,8 @@ def main():
     with h1:
         st.markdown(
             "<h1 style='font-family:Manrope,sans-serif;font-weight:800;font-size:1.6rem;"
-            "color:#F6FAB2;margin:0'>🧠 PontIA · Marketing Intelligence</h1>"
-            "<p style='color:#8BA0B0;font-size:.85rem;margin:.15rem 0 .8rem'>Seguimiento semanal de campañas de captación</p>",
+            "color:#1F2937;margin:0'>🧠 PontIA · Marketing Intelligence</h1>"
+            "<p style='color:#6B7280;font-size:.85rem;margin:.15rem 0 .8rem'>Seguimiento semanal de campañas de captación</p>",
             unsafe_allow_html=True,
         )
     with h2:
@@ -1292,8 +1347,8 @@ def main():
         ult = semanas_con_datos[-1] if semanas_con_datos else "—"
         st.markdown(
             f"<div style='text-align:right;font-family:IBM Plex Mono,monospace;font-size:.75rem;"
-            f"color:#8BA0B0;padding-top:.5rem'>Última semana: <b style='color:#F6FAB2'>S{ult}</b><br>"
-            f"Semanas totales: <b style='color:#F6FAB2'>{len(semanas_con_datos)}</b></div>",
+            f"color:#6B7280;padding-top:.5rem'>Última semana: <b style='color:#EE7015'>S{ult}</b><br>"
+            f"Semanas totales: <b style='color:#EE7015'>{len(semanas_con_datos)}</b></div>",
             unsafe_allow_html=True,
         )
 

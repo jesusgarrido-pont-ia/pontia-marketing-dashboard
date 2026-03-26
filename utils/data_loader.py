@@ -12,10 +12,11 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from io import StringIO
+from urllib.parse import quote
 
 EXCEL_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "Seguimiento_Campanas_Semanal.xlsx")
 SHEET_DATA = "02_DATA_LOG"
-SHEET_CAMPAIGNS = "01.CAMPAÑAS"
+SHEET_CAMPAIGNS = "01_CAMPAÑAS"
 
 # Mapeo de nombres de columna del Google Sheet → nombres esperados por el dashboard
 # (el Google Sheet no tiene acentos/€ en algunos nombres)
@@ -199,9 +200,10 @@ def load_campaign_status() -> pd.DataFrame:
     if not spreadsheet_id:
         return pd.DataFrame()
     try:
+        sheet_encoded = quote(SHEET_CAMPAIGNS)
         url = (
             f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-            f"/gviz/tq?tqx=out:csv&sheet={SHEET_CAMPAIGNS}"
+            f"/gviz/tq?tqx=out:csv&sheet={sheet_encoded}"
         )
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
@@ -224,6 +226,9 @@ def load_campaign_status() -> pd.DataFrame:
             result.columns = ["ID_Campaña", "Estado_Campaña"]
             result["ID_Campaña"] = result["ID_Campaña"].astype(str).str.strip()
             result["Estado_Campaña"] = result["Estado_Campaña"].astype(str).str.strip()
+            # Filtrar filas vacías
+            result = result[result["ID_Campaña"] != ""]
+            result = result[result["ID_Campaña"] != "nan"]
             return result
         return pd.DataFrame()
     except Exception:

@@ -177,7 +177,10 @@ def inject_css():
 /* ── Global ────────────────────────────────── */
 html,body,[class*="css"]{font-family:'Manrope',-apple-system,sans-serif!important;color:#0A0909!important}
 .stApp{background:#FFFFFF}
-#MainMenu,footer,header{visibility:hidden}
+#MainMenu,footer{visibility:hidden}
+header[data-testid="stHeader"]{background:transparent!important;backdrop-filter:none}
+header[data-testid="stHeader"] .stActionButton{visibility:visible!important}
+button[kind="header"]{visibility:visible!important}
 .block-container{padding-top:1.2rem;padding-bottom:1rem;max-width:1500px}
 a{color:#EE7015}
 

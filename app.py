@@ -5,6 +5,7 @@ Cuadro de mandos semanal de campañas de marketing.
 Conectado a Google Sheets (o Excel local como fallback).
 """
 
+import base64
 import hashlib
 import os
 
@@ -13,11 +14,20 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-import streamlit.components.v1 as components
 import yaml
 from plotly.subplots import make_subplots
 
 from utils.data_loader import apply_filters, get_filter_options, load_data
+
+
+@st.cache_data
+def _load_logo_b64() -> str:
+    """Carga el isotipo de Pontia como base64 para uso inline en HTML."""
+    logo_path = os.path.join(os.path.dirname(__file__), "Pontia_Logo_Isotipo_Black.png")
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return ""
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG
@@ -112,9 +122,13 @@ html,body,[class*="css"]{font-family:'Manrope',-apple-system,sans-serif!importan
 a{color:#EE7015}
 
 /* ── Sidebar ──────────────────────────────── */
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%);border-right:1px solid #E5E7EB}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%)!important;border-right:1px solid #E5E7EB}
 [data-testid="stSidebar"] .block-container{padding-top:.8rem}
 [data-testid="stSidebar"] *{color:#374151!important}
+[data-testid="stSidebar"] label{color:#374151!important}
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] .stMarkdown span,
+[data-testid="stSidebar"] .stMarkdown div{color:#374151!important}
 
 /* ── Tabs ─────────────────────────────────── */
 .stTabs [data-baseweb="tab-list"]{background:#FFFFFF;border-radius:10px;padding:4px;gap:4px;border:1px solid #E5E7EB;margin-bottom:.8rem}
@@ -149,20 +163,25 @@ a{color:#EE7015}
 .stButton>button{background:linear-gradient(135deg,#EE7015,#F59E0B)!important;color:#FFFFFF!important;border:none!important;border-radius:8px!important;font-family:'Manrope',sans-serif!important;font-weight:700!important;font-size:.875rem!important;padding:.55rem 1.4rem!important;transition:all .2s!important;box-shadow:0 2px 8px rgba(238,112,21,.25)!important}
 .stButton>button:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(238,112,21,.35)!important}
 
-/* ── Inputs ───────────────────────────────── */
-.stSelectbox [data-baseweb="select"],.stMultiSelect [data-baseweb="select"]{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px}
+/* ── Inputs & Selects (FORCE light theme) ── */
+.stSelectbox>div>div,
+.stMultiSelect>div>div,
+[data-baseweb="select"]>div{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#1F2937!important}
+[data-baseweb="select"]>div>div{color:#1F2937!important}
+[data-baseweb="select"] svg{fill:#6B7280!important}
 .stTextInput input,.stPasswordInput input{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#1F2937!important}
 .stMultiSelect [data-baseweb="tag"]{background:#FFF7ED!important;border:1px solid #FDBA74!important}
 .stMultiSelect [data-baseweb="tag"] span{color:#9A3412!important;font-weight:600}
 
-/* ── Dropdown menus (selectbox popover) ──── */
-[data-baseweb="popover"]{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important}
-[data-baseweb="popover"] li{color:#1F2937!important}
+/* ── Dropdown/Popover menus (FORCE light) ── */
+[data-baseweb="popover"]{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:0 4px 16px rgba(0,0,0,.1)!important}
+[data-baseweb="popover"] *{color:#1F2937!important}
+[data-baseweb="popover"] li{background:#FFFFFF!important;color:#1F2937!important}
 [data-baseweb="popover"] li:hover{background:#FFF7ED!important}
 [data-baseweb="popover"] [aria-selected="true"]{background:#FFF7ED!important}
 [data-baseweb="menu"]{background:#FFFFFF!important}
-[data-baseweb="select"] [data-baseweb="icon"]{color:#6B7280!important}
-[data-baseweb="select"] span{color:#1F2937!important}
+[data-baseweb="list"]{background:#FFFFFF!important}
+[data-baseweb="listbox"]{background:#FFFFFF!important}
 
 /* ── Login ────────────────────────────────── */
 .login-title{font-family:'Manrope',sans-serif;font-size:1.6rem;font-weight:800;color:#EE7015;text-align:center;margin-bottom:.2rem}
@@ -170,38 +189,28 @@ a{color:#EE7015}
 
 /* ── Sidebar brand ────────────────────────── */
 .sb-brand{text-align:center;padding:.5rem 0 1.2rem;border-bottom:1px solid #E5E7EB;margin-bottom:.8rem}
-.sb-title{font-family:'Manrope',sans-serif;font-size:1.35rem;font-weight:800;color:#EE7015}
-.sb-sub{font-size:.7rem;color:#6B7280;letter-spacing:.1em;text-transform:uppercase;margin-top:.1rem}
-.sb-user{background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:.5rem .7rem;font-size:.78rem;color:#9A3412;margin-bottom:.8rem}
+.sb-title{font-family:'Manrope',sans-serif;font-size:1.35rem;font-weight:800;color:#EE7015!important}
+.sb-sub{font-size:.7rem;color:#6B7280!important;letter-spacing:.1em;text-transform:uppercase;margin-top:.1rem}
+.sb-user{background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:.5rem .7rem;font-size:.78rem;color:#9A3412!important;margin-bottom:.8rem}
 
 /* ── Divider ──────────────────────────────── */
 .div{height:1px;background:linear-gradient(90deg,#E5E7EB,transparent);margin:.8rem 0}
 
 /* ── DataFrames ───────────────────────────── */
 .stDataFrame{border-radius:10px;overflow:hidden}
-</style>
+.stDataFrame [data-testid="stDataFrameResizable"]{background:#FFFFFF!important}
 
+/* ── Expander ────────────────────────────── */
+.streamlit-expanderHeader{background:#FFFFFF!important;color:#1F2937!important}
+.streamlit-expanderContent{background:#FFFFFF!important}
+
+/* ── Metric ──────────────────────────────── */
+[data-testid="stMetric"]{background:#FFFFFF;border-radius:10px;padding:.8rem}
+[data-testid="stMetricValue"]{color:#1F2937!important}
+[data-testid="stMetricLabel"]{color:#6B7280!important}
+</style>
 """,
         unsafe_allow_html=True,
-    )
-    # JS to disable iCloud Passwords / browser autofill popups
-    components.html(
-        """<script>
-        (function(){
-            var p=window.parent.document;
-            function fix(){
-                p.querySelectorAll('input[type="password"],input[autocomplete]').forEach(function(el){
-                    el.setAttribute('autocomplete','off');
-                    el.setAttribute('data-lpignore','true');
-                    el.setAttribute('data-1p-ignore','true');
-                    el.setAttribute('data-form-type','other');
-                });
-            }
-            fix();
-            new MutationObserver(fix).observe(p.body,{childList:true,subtree:true});
-        })();
-        </script>""",
-        height=0,
     )
 
 
@@ -242,14 +251,17 @@ def show_login_page():
         </style>""",
         unsafe_allow_html=True,
     )
+    logo_path = os.path.join(os.path.dirname(__file__), "Pontia_Logo_Isotipo_Black.png")
     _, col, _ = st.columns([1, 1.2, 1])
     with col:
+        # Logo centrado
+        lc1, lc2, lc3 = st.columns([1, 0.6, 1])
+        with lc2:
+            if os.path.exists(logo_path):
+                st.image(logo_path, width=60)
         st.markdown(
             """
-            <div style="text-align:center;margin-bottom:1.5rem">
-                <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:linear-gradient(135deg,#EE7015,#F59E0B);border-radius:14px;margin-bottom:.6rem">
-                    <span style="font-family:Manrope,sans-serif;font-size:2rem;font-weight:900;color:#FFFFFF">P</span>
-                </div><br>
+            <div style="text-align:center;margin-bottom:1.5rem;margin-top:-0.5rem">
                 <span class="login-title">PontIA</span><br>
                 <span class="login-sub">Marketing Intelligence &middot; Acceso privado</span>
             </div>
@@ -1283,12 +1295,14 @@ def tab_datos(df: pd.DataFrame):
 def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     opts = get_filter_options(df)
 
+    logo_path = os.path.join(os.path.dirname(__file__), "Pontia_Logo_Isotipo_Black.png")
+    sc1, sc2, sc3 = st.sidebar.columns([1, 0.8, 1])
+    with sc2:
+        if os.path.exists(logo_path):
+            st.image(logo_path, width=50)
     st.sidebar.markdown(
         """
-        <div class="sb-brand">
-            <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:linear-gradient(135deg,#EE7015,#F59E0B);border-radius:11px;margin-bottom:.4rem">
-                <span style="font-family:Manrope,sans-serif;font-size:1.5rem;font-weight:900;color:#FFFFFF">P</span>
-            </div>
+        <div class="sb-brand" style="border-top:none;padding-top:0">
             <div class="sb-title">PontIA</div>
             <div class="sb-sub">Marketing Intelligence</div>
         </div>
@@ -1356,14 +1370,12 @@ def main():
     # ── Header ────────────────────────────────────────────────────────────────
     h1, h2 = st.columns([3, 1])
     with h1:
+        logo_b64 = _load_logo_b64()
+        logo_img = f'<img src="data:image/png;base64,{logo_b64}" style="height:28px;vertical-align:middle;margin-right:.5rem">' if logo_b64 else ""
         st.markdown(
-            "<h1 style='font-family:Manrope,sans-serif;font-weight:800;font-size:1.6rem;"
-            "color:#1F2937;margin:0'>"
-            "<span style='display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;"
-            "background:linear-gradient(135deg,#EE7015,#F59E0B);border-radius:8px;margin-right:.5rem;vertical-align:middle'>"
-            "<span style=\"font-family:Manrope,sans-serif;font-size:1.1rem;font-weight:900;color:#FFF\">P</span></span>"
-            "PontIA · Marketing Intelligence</h1>"
-            "<p style='color:#6B7280;font-size:.85rem;margin:.15rem 0 .8rem'>Seguimiento semanal de campañas de captación</p>",
+            f"<h1 style='font-family:Manrope,sans-serif;font-weight:800;font-size:1.6rem;"
+            f"color:#1F2937;margin:0'>{logo_img}PontIA · Marketing Intelligence</h1>"
+            f"<p style='color:#6B7280;font-size:.85rem;margin:.15rem 0 .8rem'>Seguimiento semanal de campañas de captación</p>",
             unsafe_allow_html=True,
         )
     with h2:

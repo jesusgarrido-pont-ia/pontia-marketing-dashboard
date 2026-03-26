@@ -13,6 +13,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 from plotly.subplots import make_subplots
 
@@ -23,7 +24,7 @@ from utils.data_loader import apply_filters, get_filter_options, load_data
 # ══════════════════════════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="PontIA · Marketing Intelligence",
-    page_icon="🧠",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -149,13 +150,21 @@ a{color:#EE7015}
 .stButton>button:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(238,112,21,.35)!important}
 
 /* ── Inputs ───────────────────────────────── */
-.stSelectbox [data-baseweb="select"],.stMultiSelect [data-baseweb="select"]{background:#FFFFFF;border-color:#E5E7EB;border-radius:8px}
+.stSelectbox [data-baseweb="select"],.stMultiSelect [data-baseweb="select"]{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px}
 .stTextInput input,.stPasswordInput input{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#1F2937!important}
 .stMultiSelect [data-baseweb="tag"]{background:#FFF7ED!important;border:1px solid #FDBA74!important}
 .stMultiSelect [data-baseweb="tag"] span{color:#9A3412!important;font-weight:600}
 
-/* ── Login card ───────────────────────────── */
-.login-card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:20px;padding:2.5rem 2rem;box-shadow:0 20px 60px rgba(0,0,0,.08)}
+/* ── Dropdown menus (selectbox popover) ──── */
+[data-baseweb="popover"]{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important}
+[data-baseweb="popover"] li{color:#1F2937!important}
+[data-baseweb="popover"] li:hover{background:#FFF7ED!important}
+[data-baseweb="popover"] [aria-selected="true"]{background:#FFF7ED!important}
+[data-baseweb="menu"]{background:#FFFFFF!important}
+[data-baseweb="select"] [data-baseweb="icon"]{color:#6B7280!important}
+[data-baseweb="select"] span{color:#1F2937!important}
+
+/* ── Login ────────────────────────────────── */
 .login-title{font-family:'Manrope',sans-serif;font-size:1.6rem;font-weight:800;color:#EE7015;text-align:center;margin-bottom:.2rem}
 .login-sub{font-size:.85rem;color:#6B7280;text-align:center;margin-bottom:1.8rem}
 
@@ -172,23 +181,27 @@ a{color:#EE7015}
 .stDataFrame{border-radius:10px;overflow:hidden}
 </style>
 
-<script>
-// Disable browser password managers (iCloud Passwords popup)
-(function(){
-  function disableAutocomplete(){
-    document.querySelectorAll('input[type="password"]').forEach(function(el){
-      el.setAttribute('autocomplete','new-password');
-      el.setAttribute('data-lpignore','true');
-      el.setAttribute('data-1p-ignore','true');
-    });
-  }
-  disableAutocomplete();
-  var obs=new MutationObserver(disableAutocomplete);
-  obs.observe(document.body,{childList:true,subtree:true});
-})();
-</script>
 """,
         unsafe_allow_html=True,
+    )
+    # JS to disable iCloud Passwords / browser autofill popups
+    components.html(
+        """<script>
+        (function(){
+            var p=window.parent.document;
+            function fix(){
+                p.querySelectorAll('input[type="password"],input[autocomplete]').forEach(function(el){
+                    el.setAttribute('autocomplete','off');
+                    el.setAttribute('data-lpignore','true');
+                    el.setAttribute('data-1p-ignore','true');
+                    el.setAttribute('data-form-type','other');
+                });
+            }
+            fix();
+            new MutationObserver(fix).observe(p.body,{childList:true,subtree:true});
+        })();
+        </script>""",
+        height=0,
     )
 
 
@@ -219,13 +232,24 @@ def check_login(email: str, password: str) -> bool:
 
 def show_login_page():
     inject_css()
+    # Extra CSS para el contenedor de login
+    st.markdown(
+        """<style>
+        .login-wrap [data-testid="column"]:nth-child(2) > div {
+            background:#FFFFFF;border:1px solid #E5E7EB;border-radius:20px;
+            padding:2.5rem 2rem;box-shadow:0 20px 60px rgba(0,0,0,.08);
+        }
+        </style>""",
+        unsafe_allow_html=True,
+    )
     _, col, _ = st.columns([1, 1.2, 1])
     with col:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.markdown(
             """
             <div style="text-align:center;margin-bottom:1.5rem">
-                <span style="font-size:2.8rem">🧠</span><br>
+                <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:linear-gradient(135deg,#EE7015,#F59E0B);border-radius:14px;margin-bottom:.6rem">
+                    <span style="font-family:Manrope,sans-serif;font-size:2rem;font-weight:900;color:#FFFFFF">P</span>
+                </div><br>
                 <span class="login-title">PontIA</span><br>
                 <span class="login-sub">Marketing Intelligence &middot; Acceso privado</span>
             </div>
@@ -266,15 +290,9 @@ def show_login_page():
                     st.rerun()
                 else:
                     st.error("Correo o contraseña incorrectos. Contacta con el administrador.")
-            st.markdown(
-                '<div style="text-align:center;margin-top:.8rem"></div>',
-                unsafe_allow_html=True,
-            )
             if st.button("¿Olvidaste tu contraseña?", use_container_width=True, type="secondary"):
                 st.session_state["show_forgot_pw"] = True
                 st.rerun()
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1268,7 +1286,9 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     st.sidebar.markdown(
         """
         <div class="sb-brand">
-            <span style="font-size:2rem">🧠</span>
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:linear-gradient(135deg,#EE7015,#F59E0B);border-radius:11px;margin-bottom:.4rem">
+                <span style="font-family:Manrope,sans-serif;font-size:1.5rem;font-weight:900;color:#FFFFFF">P</span>
+            </div>
             <div class="sb-title">PontIA</div>
             <div class="sb-sub">Marketing Intelligence</div>
         </div>
@@ -1338,7 +1358,11 @@ def main():
     with h1:
         st.markdown(
             "<h1 style='font-family:Manrope,sans-serif;font-weight:800;font-size:1.6rem;"
-            "color:#1F2937;margin:0'>🧠 PontIA · Marketing Intelligence</h1>"
+            "color:#1F2937;margin:0'>"
+            "<span style='display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;"
+            "background:linear-gradient(135deg,#EE7015,#F59E0B);border-radius:8px;margin-right:.5rem;vertical-align:middle'>"
+            "<span style=\"font-family:Manrope,sans-serif;font-size:1.1rem;font-weight:900;color:#FFF\">P</span></span>"
+            "PontIA · Marketing Intelligence</h1>"
             "<p style='color:#6B7280;font-size:.85rem;margin:.15rem 0 .8rem'>Seguimiento semanal de campañas de captación</p>",
             unsafe_allow_html=True,
         )

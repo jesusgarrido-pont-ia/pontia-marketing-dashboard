@@ -15,6 +15,7 @@ from io import StringIO
 
 EXCEL_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "Seguimiento_Campanas_Semanal.xlsx")
 SHEET_DATA = "02_DATA_LOG"
+SHEET_CAMPAIGNS = "01.CAMPAÑAS"
 
 # Mapeo de nombres de columna del Google Sheet → nombres esperados por el dashboard
 # (el Google Sheet no tiene acentos/€ en algunos nombres)
@@ -189,6 +190,46 @@ def _tipo_canal(canal: str) -> str:
     return str(canal)
 
 
+# ── Carga hoja de campañas (estado) ───────────────────────────────────────
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_campaign_status() -> pd.DataFrame:
+    """Carga la hoja 01.CAMPAÑAS para obtener el estado de cada campaña."""
+    spreadsheet_id = _get_spreadsheet_id()
+    if not spreadsheet_id:
+        return pd.DataFrame()
+    try:
+        url = (
+            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+            f"/gviz/tq?tqx=out:csv&sheet={SHEET_CAMPAIGNS}"
+        )
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        df_camp = pd.read_csv(StringIO(resp.text), header=0)
+        df_camp.columns = [c.strip() for c in df_camp.columns]
+        # Buscar columna de estado (puede llamarse Estado, Status, etc.)
+        estado_col = None
+        for col in df_camp.columns:
+            if col.lower() in ("estado", "status", "estado campaña"):
+                estado_col = col
+                break
+        # Buscar columna de ID de campaña
+        id_col = None
+        for col in df_camp.columns:
+            if col.lower() in ("id_campaña", "id campaña", "campaña", "campaign", "nombre", "id"):
+                id_col = col
+                break
+        if estado_col and id_col:
+            result = df_camp[[id_col, estado_col]].copy()
+            result.columns = ["ID_Campaña", "Estado_Campaña"]
+            result["ID_Campaña"] = result["ID_Campaña"].astype(str).str.strip()
+            result["Estado_Campaña"] = result["Estado_Campaña"].astype(str).str.strip()
+            return result
+        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
 # ── Opciones de filtro ─────────────────────────────────────────────────────
 
 def get_filter_options(df: pd.DataFrame) -> dict:
@@ -197,15 +238,20 @@ def get_filter_options(df: pd.DataFrame) -> dict:
     campanas = ["Todas"] + sorted(df["ID_Campaña"].unique().tolist())
     canales = ["Todos"] + sorted(df["Canal"].dropna().unique().tolist())
     programas = ["Todos"] + sorted(df["Programa"].dropna().unique().tolist())
+    # Estados de campaña
+    estados = ["Todos"]
+    if "Estado_Campaña" in df.columns:
+        estados += sorted(df["Estado_Campaña"].dropna().unique().tolist())
     return {
         "semanas": semana_labels,
         "campanas": campanas,
         "canales": canales,
         "programas": programas,
+        "estados": estados,
     }
 
 
-def apply_filters(df: pd.DataFrame, semana: str, canal=None, programa=None, semanas_range=None) -> pd.DataFrame:
+def apply_filters(df: pd.DataFrame, semana: str, canal=None, programa=None, semanas_range=None, estado=None) -> pd.DataFrame:
     out = df.copy()
     if semanas_range is not None:
         out = out[out["Semana"].isin([float(s) for s in semanas_range])]
@@ -222,4 +268,9 @@ def apply_filters(df: pd.DataFrame, semana: str, canal=None, programa=None, sema
         out = out[out["Programa"].isin(programa)]
     elif isinstance(programa, str) and programa and programa != "Todos":
         out = out[out["Programa"] == programa]
+    # Estado de campaña
+    if isinstance(estado, list) and estado:
+        out = out[out["Estado_Campaña"].isin(estado)]
+    elif isinstance(estado, str) and estado and estado != "Todos":
+        out = out[out["Estado_Campaña"] == estado]
     return out

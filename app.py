@@ -18,7 +18,7 @@ import streamlit as st
 import yaml
 from plotly.subplots import make_subplots
 
-from utils.data_loader import apply_filters, get_filter_options, load_data
+from utils.data_loader import apply_filters, get_filter_options, load_data, load_campaign_status
 
 # ── AI module (optional) ────────────────────────────────────────────────────
 try:
@@ -1578,6 +1578,25 @@ def tab_perdidas(df: pd.DataFrame):
         with mc5:
             kpi_card("💵", "Ingresos", fmt_eur(meta["Ingresos (€)"].sum()), "Meta Ads")
 
+    # Análisis LinkedIn Ads
+    lnkd = df[df["Canal"].str.contains("linkedin", case=False, na=False)]
+    if not lnkd.empty:
+        section("LinkedIn Ads — Métricas Clave")
+        lc1, lc2, lc3, lc4, lc5 = st.columns(5)
+        with lc1:
+            kpi_card("💼", "Inversión", fmt_eur(lnkd["Inversión (€)"].sum()), "LinkedIn Ads")
+        with lc2:
+            kpi_card("👥", "Leads Válidos", fmt_num(lnkd["Leads Válidos"].sum()), "total")
+        with lc3:
+            inv_l = lnkd["Inversión (€)"].sum()
+            leads_l = lnkd["Leads Válidos"].sum()
+            cpl_l = inv_l / leads_l if leads_l > 0 else None
+            kpi_card("💶", "CPL Medio", fmt_eur(cpl_l) if cpl_l else "—", "coste por lead")
+        with lc4:
+            kpi_card("🎓", "Matriculados", fmt_num(lnkd["Matriculados"].sum()), "LinkedIn Ads")
+        with lc5:
+            kpi_card("💵", "Ingresos", fmt_eur(lnkd["Ingresos (€)"].sum()), "LinkedIn Ads")
+
 
 def tab_datos(df: pd.DataFrame):
     """Tab 5: Tabla de datos raw con exportación."""
@@ -1671,6 +1690,13 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     canales_sel = st.sidebar.multiselect("Canal", opts["canales"][1:], default=[], placeholder="Todos")
     programas_sel = st.sidebar.multiselect("Programa", opts["programas"][1:], default=[], placeholder="Todos")
 
+    # Estado de campaña filter
+    estados_disponibles = opts.get("estados", ["Todos"])
+    if len(estados_disponibles) > 1:
+        estados_sel = st.sidebar.multiselect("Estado campaña", estados_disponibles[1:], default=[], placeholder="Todos")
+    else:
+        estados_sel = []
+
     # Campaign search (Phase 2B)
     search_campana = st.sidebar.text_input("🔍 Buscar campaña", placeholder="Nombre...", key="search_campana")
 
@@ -1679,7 +1705,8 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     # Estadísticas rápidas
     df_f = apply_filters(df, semana, canal=canales_sel if canales_sel else None,
                          programa=programas_sel if programas_sel else None,
-                         semanas_range=semanas_range)
+                         semanas_range=semanas_range,
+                         estado=estados_sel if estados_sel else None)
     # Apply campaign search filter
     if search_campana and search_campana.strip():
         df_f = df_f[df_f["ID_Campaña"].str.contains(search_campana.strip(), case=False, na=False)]
@@ -1842,6 +1869,13 @@ def main():
     with loading_placeholder.container():
         with st.spinner("Cargando datos…"):
             df_all = load_data()
+            # Mergear estados de campaña desde hoja 01.CAMPAÑAS
+            df_camp_status = load_campaign_status()
+            if not df_camp_status.empty:
+                df_all = df_all.merge(df_camp_status, on="ID_Campaña", how="left")
+                df_all["Estado_Campaña"] = df_all["Estado_Campaña"].fillna("Sin estado")
+            else:
+                df_all["Estado_Campaña"] = "Sin estado"
     loading_placeholder.empty()
 
     if df_all.empty:

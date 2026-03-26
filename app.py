@@ -259,8 +259,8 @@ a{color:#EE7015}
 
 /* ── Charts & DataFrames (card frame) ────── */
 [data-testid="stVegaLiteChart"],
-.stPlotlyChart{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.5rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.5rem}
-.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.3rem;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
+.stPlotlyChart{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:1.2rem 1rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.8rem}
+.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.8rem;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden;margin-bottom:.8rem}
 
 /* ── Force ALL text to dark on light bg ──── */
 .stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#0A0909!important}

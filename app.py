@@ -92,22 +92,32 @@ st.set_page_config(
 # BRAND PALETTE
 # ══════════════════════════════════════════════════════════════════════════════
 C = {
-    # Pontia brand colors (from brandbook)
-    "bg":      "#F5F7FA",
+    # ── Pontia Brand Colors (brandbook oficial) ──
+    # Primarios
+    "navy":    "#111E2D",       # PontIA Azul
+    "green":   "#173A32",       # PontIA Verde
+    "yellow":  "#F6FAB2",       # PontIA Amarillo Botón
+    # Secundarios
+    "amber":   "#BB812F",       # Ámbar Oscuro
+    "orange":  "#EE7015",       # Naranja Intenso
+    "red":     "#6C0000",       # Rojo Oscuro Intenso
+    "purple":  "#744A6E",       # Morado Oscuro
+    "blue":    "#5683D2",       # Azul Cielo Intenso
+    "sage":    "#AABCA3",       # Verde Salvia Suave
+    # Neutros
+    "black":   "#0A0909",
+    "gray_d":  "#4C4C4C",       # Gris Oscuro
+    "gray_m":  "#808080",       # Gris Medio
+    "gray_l":  "#EFEEEA",       # Gris Claro Cálido
+    "white":   "#FFFFFF",
+    # ── UI semánticos ──
+    "bg":      "#EFEEEA",       # Fondo: Gris Claro Cálido (brandbook)
     "bg2":     "#FFFFFF",
     "card":    "#FFFFFF",
-    "navy":    "#111E2D",       # Pontia primary dark
-    "green":   "#173A32",       # Pontia primary green
-    "yellow":  "#F6FAB2",       # Pontia accent yellow
-    "amber":   "#BB812F",       # Pontia amber
-    "orange":  "#EE7015",       # Pontia primary orange
-    "blue":    "#5683D2",       # Pontia blue
-    "sage":    "#AABCA3",       # Pontia sage
-    "purple":  "#744A6E",       # Pontia purple
     "ok":      "#2E7D32",       # Semáforo verde
     "warn":    "#ED6C02",       # Semáforo ámbar
     "danger":  "#D32F2F",       # Semáforo rojo
-    "muted":   "#6B7280",
+    "muted":   "#808080",       # Gris Medio (brandbook)
     "border":  "#E5E7EB",
 }
 
@@ -121,15 +131,15 @@ CHANNEL_COLORS = {
 
 CHART_PALETTE = [
     C["blue"], C["orange"], C["sage"], C["amber"],
-    C["purple"], "#00897B", C["ok"], "#E91E63",
-    "#FF8A65", "#66BB6A", "#EF5350", "#AB47BC",
+    C["purple"], C["green"], C["red"], C["navy"],
+    "#00897B", "#E91E63", "#FF8A65", "#66BB6A",
 ]
 
 LEGEND_BASE = dict(
     bgcolor="rgba(255,255,255,0.95)",
     bordercolor=C["border"],
     borderwidth=1,
-    font=dict(color="#1F2937", size=11),
+    font=dict(color="#0A0909", size=11),
 )
 
 AXIS_BASE = dict(gridcolor="#F0F0F0", linecolor=C["border"], tickfont=dict(color=C["muted"]), zerolinecolor=C["border"])
@@ -137,11 +147,11 @@ AXIS_BASE = dict(gridcolor="#F0F0F0", linecolor=C["border"], tickfont=dict(color
 PLOT_BASE = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(255,255,255,0)",
-    font=dict(family="Manrope, sans-serif", color="#1F2937", size=12),
-    title_font=dict(family="Manrope, sans-serif", color="#1F2937", size=14),
+    font=dict(family="Manrope, sans-serif", color="#0A0909", size=12),
+    title_font=dict(family="Manrope, sans-serif", color="#0A0909", size=14),
     legend=LEGEND_BASE,
     margin=dict(l=10, r=10, t=40, b=10),
-    hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=C["border"], font_family="Manrope", font_color="#1F2937"),
+    hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=C["border"], font_family="Manrope", font_color="#0A0909"),
 )
 
 def _base(fig, title="", **axis_kwargs):
@@ -165,24 +175,24 @@ def inject_css():
 
 <style>
 /* ── Global ────────────────────────────────── */
-html,body,[class*="css"]{font-family:'Manrope',-apple-system,sans-serif!important;color:#1F2937!important}
-.stApp{background:#F5F7FA}
+html,body,[class*="css"]{font-family:'Manrope',-apple-system,sans-serif!important;color:#0A0909!important}
+.stApp{background:#EFEEEA}
 #MainMenu,footer,header{visibility:hidden}
 .block-container{padding-top:1.2rem;padding-bottom:1rem;max-width:1500px}
 a{color:#EE7015}
 
 /* ── Sidebar ──────────────────────────────── */
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#FFFFFF 0%,#F9FAFB 100%)!important;border-right:1px solid #E5E7EB}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#FFFFFF 0%,#EFEEEA 100%)!important;border-right:1px solid #E5E7EB}
 [data-testid="stSidebar"] .block-container{padding-top:.8rem}
-[data-testid="stSidebar"] *{color:#374151!important}
-[data-testid="stSidebar"] label{color:#374151!important}
+[data-testid="stSidebar"] *{color:#4C4C4C!important}
+[data-testid="stSidebar"] label{color:#4C4C4C!important}
 [data-testid="stSidebar"] .stMarkdown p,
 [data-testid="stSidebar"] .stMarkdown span,
-[data-testid="stSidebar"] .stMarkdown div{color:#374151!important}
+[data-testid="stSidebar"] .stMarkdown div{color:#4C4C4C!important}
 
 /* ── Tabs ─────────────────────────────────── */
 .stTabs [data-baseweb="tab-list"]{background:#FFFFFF;border-radius:10px;padding:4px;gap:4px;border:1px solid #E5E7EB;margin-bottom:.8rem}
-.stTabs [data-baseweb="tab"]{background:transparent;color:#6B7280;border-radius:7px;padding:.45rem 1rem;font-family:'Manrope',sans-serif;font-weight:500;font-size:.875rem;transition:all .2s;border:none}
+.stTabs [data-baseweb="tab"]{background:transparent;color:#808080;border-radius:7px;padding:.45rem 1rem;font-family:'Manrope',sans-serif;font-weight:500;font-size:.875rem;transition:all .2s;border:none}
 .stTabs [aria-selected="true"]{background:#EE7015!important;color:#FFFFFF!important;font-weight:700}
 .stTabs [data-baseweb="tab-highlight"],.stTabs [data-baseweb="tab-border"]{display:none}
 
@@ -191,9 +201,9 @@ a{color:#EE7015}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#EE7015,#F59E0B)}
 .kpi-card:hover{border-color:#EE7015;transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.08)}
 .kpi-icon{display:block;font-size:1.3rem;margin-bottom:.25rem}
-.kpi-label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:.35rem}
-.kpi-value{display:block;font-family:'IBM Plex Mono',monospace;font-size:1.65rem;font-weight:600;color:#1F2937;line-height:1;margin-bottom:.25rem}
-.kpi-sub{display:block;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#9CA3AF}
+.kpi-label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#808080;margin-bottom:.35rem}
+.kpi-value{display:block;font-family:'IBM Plex Mono',monospace;font-size:1.65rem;font-weight:600;color:#0A0909;line-height:1;margin-bottom:.25rem}
+.kpi-sub{display:block;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:#808080}
 .kpi-delta{display:block;font-size:.75rem;font-weight:700;margin-top:.2rem}
 .badge{display:inline-block;font-size:.62rem;font-weight:700;padding:.12rem .45rem;border-radius:20px;margin-top:.25rem}
 .bg{background:rgba(22,163,74,.1);color:#16A34A;border:1px solid rgba(22,163,74,.25)}
@@ -217,17 +227,17 @@ a{color:#EE7015}
 /* ── Inputs & Selects (FORCE light theme) ── */
 .stSelectbox>div>div,
 .stMultiSelect>div>div,
-[data-baseweb="select"]>div{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#1F2937!important}
-[data-baseweb="select"]>div>div{color:#1F2937!important}
-[data-baseweb="select"] svg{fill:#6B7280!important}
-.stTextInput input,.stPasswordInput input{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#1F2937!important}
+[data-baseweb="select"]>div{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#0A0909!important}
+[data-baseweb="select"]>div>div{color:#0A0909!important}
+[data-baseweb="select"] svg{fill:#808080!important}
+.stTextInput input,.stPasswordInput input{background:#FFFFFF!important;border-color:#E5E7EB!important;border-radius:8px!important;color:#0A0909!important}
 .stMultiSelect [data-baseweb="tag"]{background:#FFF7ED!important;border:1px solid #FDBA74!important}
 .stMultiSelect [data-baseweb="tag"] span{color:#9A3412!important;font-weight:600}
 
 /* ── Dropdown/Popover menus (FORCE light) ── */
 [data-baseweb="popover"]{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:0 4px 16px rgba(0,0,0,.1)!important}
-[data-baseweb="popover"] *{color:#1F2937!important}
-[data-baseweb="popover"] li{background:#FFFFFF!important;color:#1F2937!important}
+[data-baseweb="popover"] *{color:#0A0909!important}
+[data-baseweb="popover"] li{background:#FFFFFF!important;color:#0A0909!important}
 [data-baseweb="popover"] li:hover{background:#FFF7ED!important}
 [data-baseweb="popover"] [aria-selected="true"]{background:#FFF7ED!important}
 [data-baseweb="menu"]{background:#FFFFFF!important}
@@ -236,12 +246,12 @@ a{color:#EE7015}
 
 /* ── Login ────────────────────────────────── */
 .login-title{font-family:'Manrope',sans-serif;font-size:1.6rem;font-weight:800;color:#EE7015;text-align:center;margin-bottom:.2rem}
-.login-sub{font-size:.85rem;color:#6B7280;text-align:center;margin-bottom:1.8rem}
+.login-sub{font-size:.85rem;color:#808080;text-align:center;margin-bottom:1.8rem}
 
 /* ── Sidebar brand ────────────────────────── */
 .sb-brand{text-align:center;padding:.5rem 0 1.2rem;border-bottom:1px solid #E5E7EB;margin-bottom:.8rem}
 .sb-title{font-family:'Manrope',sans-serif;font-size:1.35rem;font-weight:800;color:#EE7015!important}
-.sb-sub{font-size:.7rem;color:#6B7280!important;letter-spacing:.1em;text-transform:uppercase;margin-top:.1rem}
+.sb-sub{font-size:.7rem;color:#808080!important;letter-spacing:.1em;text-transform:uppercase;margin-top:.1rem}
 .sb-user{background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:.5rem .7rem;font-size:.78rem;color:#9A3412!important;margin-bottom:.8rem}
 
 /* ── Divider ──────────────────────────────── */
@@ -253,17 +263,17 @@ a{color:#EE7015}
 .stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.3rem;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
 
 /* ── Force ALL text to dark on light bg ──── */
-.stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#1F2937!important}
-.stCaption,.stCaption *{color:#6B7280!important}
+.stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#0A0909!important}
+.stCaption,.stCaption *{color:#808080!important}
 
 /* ── Expander ────────────────────────────── */
-.streamlit-expanderHeader{background:#FFFFFF!important;color:#1F2937!important}
+.streamlit-expanderHeader{background:#FFFFFF!important;color:#0A0909!important}
 .streamlit-expanderContent{background:#FFFFFF!important}
 
 /* ── Metric ──────────────────────────────── */
 [data-testid="stMetric"]{background:#FFFFFF;border-radius:10px;padding:.8rem}
-[data-testid="stMetricValue"]{color:#1F2937!important}
-[data-testid="stMetricLabel"]{color:#6B7280!important}
+[data-testid="stMetricValue"]{color:#0A0909!important}
+[data-testid="stMetricLabel"]{color:#808080!important}
 
 /* ── KPI Grid (responsive) ───────────────── */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:.5rem}
@@ -350,7 +360,7 @@ def show_login_page():
         # Toggle entre login y recuperación de contraseña
         if st.session_state.get("show_forgot_pw"):
             st.markdown(
-                '<p style="font-size:.85rem;color:#6B7280;text-align:center;margin-bottom:1rem">'
+                '<p style="font-size:.85rem;color:#808080;text-align:center;margin-bottom:1rem">'
                 'Introduce tu correo autorizado y te mostraremos la contraseña.</p>',
                 unsafe_allow_html=True,
             )
@@ -359,7 +369,7 @@ def show_login_page():
                 st.info("Contacta con el administrador en admin@pontia.tech para recuperar tu contraseña.")
             st.markdown(
                 '<div style="text-align:center;margin-top:.8rem">'
-                '<span style="font-size:.82rem;color:#6B7280">¿Ya la recuerdas?</span></div>',
+                '<span style="font-size:.82rem;color:#808080">¿Ya la recuerdas?</span></div>',
                 unsafe_allow_html=True,
             )
             if st.button("← Volver al inicio de sesión", use_container_width=True, type="secondary"):
@@ -535,7 +545,7 @@ def chart_roas_campanas(df: pd.DataFrame, benchmarks=None):
         marker_color=colors,
         hovertemplate="<b>%{y}</b><br>ROAS: %{x:.2f}x<extra></extra>",
         text=g["ROAS"].apply(lambda x: f"{x:.2f}x"),
-        textposition="outside", textfont=dict(color="#1F2937", size=11),
+        textposition="outside", textfont=dict(color="#0A0909", size=11),
     ))
     fig.add_vline(x=b_roas["bad"], line_dash="dash", line_color=C["warn"], annotation_text="Break-even",
                   annotation_font=dict(color=C["warn"], size=10))
@@ -874,7 +884,7 @@ def _clasificar_campana(cpl, roas, leads, inv, benchmarks=None):
         return ("🔴", "PAUSAR",
                 "rgba(239,68,68,.3)", "rgba(239,68,68,.06)", "#DC2626", "#991B1B")
     if pd.isna(cpl) or cpl is None:
-        return ("⚪", "S/D", "rgba(107,114,128,.25)", "rgba(107,114,128,.05)", "#6B7280", "#6B7280")
+        return ("⚪", "S/D", "rgba(107,114,128,.25)", "rgba(107,114,128,.05)", "#808080", "#808080")
     if cpl > b_cpl["pause"]:
         return ("🔴", "PAUSAR",
                 "rgba(239,68,68,.3)", "rgba(239,68,68,.06)", "#DC2626", "#991B1B")
@@ -927,10 +937,10 @@ def panel_decisiones(df: pd.DataFrame, benchmarks=None):
         border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1.2rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
           <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem">
             <span style="font-size:1.2rem">🎯</span>
-            <span style="font-family:Manrope,sans-serif;font-size:1rem;font-weight:800;color:#1F2937">
+            <span style="font-family:Manrope,sans-serif;font-size:1rem;font-weight:800;color:#0A0909">
               Panel de Decisiones — ¿Qué hacer esta semana?
             </span>
-            <span style="font-size:.72rem;color:#6B7280;margin-left:auto">{len(g)} campañas</span>
+            <span style="font-size:.72rem;color:#808080;margin-left:auto">{len(g)} campañas</span>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem">
             <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);
@@ -964,7 +974,7 @@ def panel_decisiones(df: pd.DataFrame, benchmarks=None):
             f'border-radius:9px;padding:.55rem .8rem;margin-bottom:.35rem">'
             f'<div style="font-weight:700;font-size:.82rem;color:{r["nombre_color"]};'
             f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{r["ID_Campaña"]}</div>'
-            f'<div style="font-size:.7rem;color:#6B7280;margin-top:.1rem">'
+            f'<div style="font-size:.7rem;color:#808080;margin-top:.1rem">'
             f'CPL: <b style="color:{r["texto"]}">{cpl_s}</b> · Leads: <b>{leads_s}</b>{roas_s}'
             f"</div></div>"
         )
@@ -978,7 +988,7 @@ def panel_decisiones(df: pd.DataFrame, benchmarks=None):
         )
         if pausar.empty:
             st.markdown(
-                '<div style="font-size:.78rem;color:#6B7280;font-style:italic">Ninguna campaña en zona roja ✓</div>',
+                '<div style="font-size:.78rem;color:#808080;font-style:italic">Ninguna campaña en zona roja ✓</div>',
                 unsafe_allow_html=True,
             )
         for _, r in pausar.iterrows():
@@ -992,7 +1002,7 @@ def panel_decisiones(df: pd.DataFrame, benchmarks=None):
         )
         if revisar.empty:
             st.markdown(
-                '<div style="font-size:.78rem;color:#6B7280;font-style:italic">Ninguna en zona amarilla ✓</div>',
+                '<div style="font-size:.78rem;color:#808080;font-style:italic">Ninguna en zona amarilla ✓</div>',
                 unsafe_allow_html=True,
             )
         for _, r in revisar.iterrows():
@@ -1006,7 +1016,7 @@ def panel_decisiones(df: pd.DataFrame, benchmarks=None):
         )
         if escalar.empty:
             st.markdown(
-                '<div style="font-size:.78rem;color:#6B7280;font-style:italic">Ninguna lista para escalar aún</div>',
+                '<div style="font-size:.78rem;color:#808080;font-style:italic">Ninguna lista para escalar aún</div>',
                 unsafe_allow_html=True,
             )
         for _, r in escalar.iterrows():
@@ -1662,7 +1672,7 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
         df_f = df_f[df_f["ID_Campaña"].str.contains(search_campana.strip(), case=False, na=False)]
     st.sidebar.markdown(
         f"""
-        <div style="font-size:.75rem;color:#6B7280;line-height:1.8">
+        <div style="font-size:.75rem;color:#808080;line-height:1.8">
         📊 <b style="color:#EE7015">{len(df_f):,}</b> registros filtrados<br>
         📅 <b style="color:#EE7015">{df_f['Semana'].nunique()}</b> semanas con datos<br>
         🎯 <b style="color:#EE7015">{df_f['ID_Campaña'].nunique()}</b> campañas activas
@@ -1711,8 +1721,8 @@ def main():
         logo_img = f'<img src="data:image/png;base64,{logo_b64}" style="height:28px;vertical-align:middle;margin-right:.5rem">' if logo_b64 else ""
         st.markdown(
             f"<h1 style='font-family:Manrope,sans-serif;font-weight:800;font-size:1.6rem;"
-            f"color:#1F2937;margin:0'>{logo_img}PontIA · Marketing Intelligence</h1>"
-            f"<p style='color:#6B7280;font-size:.85rem;margin:.15rem 0 .8rem'>Seguimiento semanal de campañas de captación</p>",
+            f"color:#0A0909;margin:0'>{logo_img}PontIA · Marketing Intelligence</h1>"
+            f"<p style='color:#808080;font-size:.85rem;margin:.15rem 0 .8rem'>Seguimiento semanal de campañas de captación</p>",
             unsafe_allow_html=True,
         )
     with h2:
@@ -1720,7 +1730,7 @@ def main():
         ult = semanas_con_datos[-1] if semanas_con_datos else "—"
         st.markdown(
             f"<div style='text-align:right;font-family:IBM Plex Mono,monospace;font-size:.75rem;"
-            f"color:#6B7280;padding-top:.5rem'>Última semana: <b style='color:#EE7015'>S{ult}</b><br>"
+            f"color:#808080;padding-top:.5rem'>Última semana: <b style='color:#EE7015'>S{ult}</b><br>"
             f"Semanas totales: <b style='color:#EE7015'>{len(semanas_con_datos)}</b></div>",
             unsafe_allow_html=True,
         )
@@ -1751,7 +1761,7 @@ def main():
     # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown(
         '<div style="text-align:center;padding:2rem 0 1rem;margin-top:2rem;'
-        'border-top:1px solid #E5E7EB;font-size:.75rem;color:#9CA3AF">'
+        'border-top:1px solid #E5E7EB;font-size:.75rem;color:#808080">'
         'Hecho con ❤️ por Jesús para el equipo de PontIA'
         '</div>',
         unsafe_allow_html=True,

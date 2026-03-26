@@ -92,20 +92,21 @@ st.set_page_config(
 # BRAND PALETTE
 # ══════════════════════════════════════════════════════════════════════════════
 C = {
+    # Pontia brand colors (from brandbook)
     "bg":      "#F5F7FA",
     "bg2":     "#FFFFFF",
     "card":    "#FFFFFF",
-    "green":   "#1B6B4A",
-    "yellow":  "#EE7015",
-    "amber":   "#D97706",
-    "orange":  "#EE7015",
-    "blue":    "#3B6FD4",
-    "sage":    "#5BA88C",
-    "red":     "#DC2626",
-    "purple":  "#7C3AED",
-    "ok":      "#16A34A",
-    "warn":    "#F59E0B",
-    "danger":  "#EF4444",
+    "navy":    "#111E2D",       # Pontia primary dark
+    "green":   "#173A32",       # Pontia primary green
+    "yellow":  "#F6FAB2",       # Pontia accent yellow
+    "amber":   "#BB812F",       # Pontia amber
+    "orange":  "#EE7015",       # Pontia primary orange
+    "blue":    "#5683D2",       # Pontia blue
+    "sage":    "#AABCA3",       # Pontia sage
+    "purple":  "#744A6E",       # Pontia purple
+    "ok":      "#2E7D32",       # Semáforo verde
+    "warn":    "#ED6C02",       # Semáforo ámbar
+    "danger":  "#D32F2F",       # Semáforo rojo
     "muted":   "#6B7280",
     "border":  "#E5E7EB",
 }
@@ -119,9 +120,9 @@ CHANNEL_COLORS = {
 }
 
 CHART_PALETTE = [
-    C["blue"], C["orange"], C["amber"], C["sage"],
-    C["purple"], "#00BCD4", C["ok"], "#FF80AB",
-    "#FFB74D", "#81C784", "#EF5350", "#7C3AED",
+    C["blue"], C["orange"], C["sage"], C["amber"],
+    C["purple"], "#00897B", C["ok"], "#E91E63",
+    "#FF8A65", "#66BB6A", "#EF5350", "#AB47BC",
 ]
 
 LEGEND_BASE = dict(
@@ -246,8 +247,10 @@ a{color:#EE7015}
 /* ── Divider ──────────────────────────────── */
 .div{height:1px;background:linear-gradient(90deg,#E5E7EB,transparent);margin:.8rem 0}
 
-/* ── DataFrames ───────────────────────────── */
-.stDataFrame{border-radius:10px;overflow:hidden}
+/* ── Charts & DataFrames (card frame) ────── */
+[data-testid="stVegaLiteChart"],
+.stPlotlyChart{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.5rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.5rem}
+.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.3rem;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden}
 
 /* ── Force ALL text to dark on light bg ──── */
 .stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#1F2937!important}

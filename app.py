@@ -418,7 +418,7 @@ def _color_badge(value, good_thresh, bad_thresh, invert=False):
 
 def kpi_card(icon, label, value, sub="", badge_class="", badge_text="", delta=None, return_html=False):
     """Render a KPI card. If return_html=True, returns the HTML string instead of rendering."""
-    badge_html = f'<div class="badge {badge_class}">{badge_text}</div>' if badge_class else ""
+    badge_html = f'<div class="badge {badge_class}">{badge_text}</div>' if badge_class and badge_text else ""
     delta_html = ""
     if delta is not None and delta != "":
         delta_cls = "kpi-delta-up" if not str(delta).startswith("-") and str(delta).replace("%","").replace("+","").replace(" ","") != "0" else "kpi-delta-down"
@@ -1129,7 +1129,7 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame, benchmarks=None):
                           delta=deltas.get("leads"), return_html=True))
     badge = _color_badge(cpl, b_cpl["good"], b_cpl["review"], invert=True) if cpl else ""
     cards.append(kpi_card("💡", "CPL Medio", fmt_eur(cpl, 2), "coste por lead", badge,
-                          f"≤{b_cpl['good']}€ óptimo" if badge == "bg" else f">{b_cpl['review']}€ alto" if badge == "br" else "aceptable",
+                          f"≤{b_cpl['good']}€ óptimo" if badge == "bg" else f"&gt;{b_cpl['review']}€ alto" if badge == "br" else "aceptable",
                           delta=deltas.get("cpl"), return_html=True))
     cards.append(kpi_card("🤝", "Entrevistas", fmt_num(entrevistas), "total",
                           delta=deltas.get("entrevistas"), return_html=True))
@@ -1143,7 +1143,7 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame, benchmarks=None):
                           delta=deltas.get("ingresos"), return_html=True))
     badge = _color_badge(roas, 3, b_roas["bad"]) if roas else ""
     cards.append(kpi_card("📈", "ROAS Global", f"{roas:.2f}x" if roas else "—", "retorno inversión",
-                          badge, f"≥3x bueno" if badge == "bg" else f"<{b_roas['bad']}x negativo" if badge == "br" else "",
+                          badge, f"≥3x bueno" if badge == "bg" else f"&lt;{b_roas['bad']}x negativo" if badge == "br" else "",
                           delta=deltas.get("roas"), return_html=True))
     # Budget projection card
     if budget_proj is not None:

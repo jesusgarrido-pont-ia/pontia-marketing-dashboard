@@ -1,22 +1,54 @@
 # ─────────────────────────────────────────────────────────────
-# PontIA Marketing Intelligence — Configuración de Acceso
-# ──────────────dd───────────────────────────────────────────────
-# Cambia la contraseña y añade/elimina correos autorizados.
+# PontIA Marketing Intelligence — Configuración
+# ─────────────────────────────────────────────────────────────
 # En producción (Streamlit Cloud), usa el panel de "Secrets"
 # con el mismo formato que .streamlit/secrets.toml (ver README).
 # ─────────────────────────────────────────────────────────────
 
 auth:
-  password: "REDACTED"          # Contraseña compartida para todos los usuarios
+  # Contraseña compartida (SHA-256 hash de "REDACTED")
+  # Para generar un nuevo hash: python -c "import hashlib; print(hashlib.sha256('TU_CLAVE'.encode()).hexdigest())"
+  password_hash: "3cc9e51bfe93cf912b41574e691d925080929ff6730424c3e8473145033a8354"
   authorized_emails:
     - jesus.garrido@pontia.tech
-    -              # ← Sustituye por los correos reales del equipo
-    # - marketing@pontia.es
-    # - director@pontia.es
+    # - otro@pontia.tech
 
 # ─────────────────────────────────────────────────────────────
-# Google Sheets (rellena cuando tengas la URL del Sheet)
+# Google Sheets
 # ─────────────────────────────────────────────────────────────
 google_sheets:
-  spreadsheet_id: ""   # Pega aquí el ID de tu Google Sheet (ver README)
-  sheet_name: "Datos"
+  spreadsheet_id: "CONFIGURE_IN_SECRETS"
+  sheet_name: "02_DATA_LOG"
+  sheet_gid: "1786324848"
+
+# ─────────────────────────────────────────────────────────────
+# Benchmarks — Umbrales para semáforos y alertas
+# Modifica estos valores para ajustar los criterios de decisión.
+# ─────────────────────────────────────────────────────────────
+benchmarks:
+  cpl:
+    good: 15          # CPL ≤ good → verde
+    review: 25        # CPL > good y ≤ review → amarillo
+    pause: 40         # CPL > pause → rojo / pausar
+    optimal_line: 15  # Línea de referencia en gráficos
+
+  roas:
+    bad: 1            # ROAS < bad → rojo
+    good: 2           # ROAS ≥ good → verde (con CPL bajo)
+    excellent: 4      # Referencia para gráfico barras
+
+  coste_entrevista:
+    good: 60
+    bad: 100
+
+  leads:
+    good: 100
+    bad: 50
+
+  matriculados:
+    good: 5
+    bad: 2
+
+  conv_lead_matricula:
+    good: 5           # porcentaje
+    bad: 2

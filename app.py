@@ -6,8 +6,10 @@ Conectado a Google Sheets (o Excel local como fallback).
 """
 
 import base64
+import calendar
 import hashlib
 import os
+from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -19,6 +21,13 @@ from plotly.subplots import make_subplots
 
 from utils.data_loader import apply_filters, get_filter_options, load_data
 
+# ── AI module (optional) ────────────────────────────────────────────────────
+try:
+    import anthropic
+    _HAS_ANTHROPIC = True
+except ImportError:
+    _HAS_ANTHROPIC = False
+
 
 @st.cache_data
 def _load_logo_b64() -> str:
@@ -28,6 +37,47 @@ def _load_logo_b64() -> str:
         with open(logo_path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     return ""
+
+
+# ── Benchmarks configurables ────────────────────────────────────────────────
+_DEFAULT_BENCHMARKS = {
+    "cpl": {"good": 15, "review": 25, "pause": 40, "optimal_line": 15},
+    "roas": {"bad": 1, "good": 2, "excellent": 4},
+    "coste_entrevista": {"good": 60, "bad": 100},
+    "leads": {"good": 100, "bad": 50},
+    "matriculados": {"good": 5, "bad": 2},
+    "conv_lead_matricula": {"good": 5, "bad": 2},
+}
+
+
+@st.cache_data
+def _load_benchmarks() -> dict:
+    """Lee benchmarks de st.secrets primero, luego config.yaml, luego defaults."""
+    benchmarks = dict(_DEFAULT_BENCHMARKS)
+    # Try st.secrets first
+    try:
+        sb = dict(st.secrets.get("benchmarks", {}))
+        if sb:
+            for key in benchmarks:
+                if key in sb:
+                    benchmarks[key] = dict(sb[key])
+            return benchmarks
+    except Exception:
+        pass
+    # Try config.yaml
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path) as f:
+                cfg = yaml.safe_load(f)
+            sb = cfg.get("benchmarks", {})
+            if sb:
+                for key in benchmarks:
+                    if key in sb:
+                        benchmarks[key] = dict(sb[key])
+        except Exception:
+            pass
+    return benchmarks
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG
@@ -211,6 +261,20 @@ a{color:#EE7015}
 [data-testid="stMetric"]{background:#FFFFFF;border-radius:10px;padding:.8rem}
 [data-testid="stMetricValue"]{color:#1F2937!important}
 [data-testid="stMetricLabel"]{color:#6B7280!important}
+
+/* ── KPI Grid (responsive) ───────────────── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:.5rem}
+.kpi-delta{font-family:'IBM Plex Mono',monospace;font-size:.7rem;font-weight:600;margin-top:.2rem}
+.kpi-delta-up{color:#16A34A}
+.kpi-delta-down{color:#EF4444}
+
+/* ── Responsive ──────────────────────────── */
+@media (max-width: 768px) {
+  .kpi-grid{grid-template-columns:repeat(2,1fr)!important}
+  .kpi-card{padding:.8rem .6rem}
+  .kpi-value{font-size:1.3rem}
+  .block-container{padding-left:.5rem;padding-right:.5rem}
+}
 </style>
 """,
         unsafe_allow_html=True,
@@ -221,11 +285,12 @@ a{color:#EE7015}
 # AUTHENTICATION
 # ══════════════════════════════════════════════════════════════════════════════
 def _load_auth_config() -> dict:
-    """Lee credenciales de st.secrets o config.yaml (fallback)."""
+    """Lee credenciales de st.secrets o config.yaml (fallback).
+    Soporta password_hash (SHA-256) y password (legacy)."""
     try:
-        pw = st.secrets["auth"]["password"]
-        emails = list(st.secrets["auth"]["authorized_emails"])
-        return {"password": pw, "authorized_emails": emails}
+        auth_sec = dict(st.secrets.get("auth", {}))
+        if auth_sec:
+            return auth_sec
     except Exception:
         pass
     cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
@@ -239,7 +304,14 @@ def _load_auth_config() -> dict:
 def check_login(email: str, password: str) -> bool:
     cfg = _load_auth_config()
     authorized = [e.lower().strip() for e in cfg.get("authorized_emails", []) if e]
-    return email.lower().strip() in authorized and password == cfg.get("password", "")
+    if email.lower().strip() not in authorized:
+        return False
+    # New hashed password mode
+    if "password_hash" in cfg:
+        input_hash = hashlib.sha256(password.encode()).hexdigest()
+        return input_hash == cfg["password_hash"]
+    # Legacy plaintext password (backward compat)
+    return password == cfg.get("password", "")
 
 
 def show_login_page():
@@ -281,12 +353,7 @@ def show_login_page():
             )
             forgot_email = st.text_input("Correo electrónico", placeholder="tu@pontia.es", key="forgot_email")
             if st.button("Recuperar contraseña", use_container_width=True):
-                cfg = _load_auth_config()
-                authorized = [e.lower().strip() for e in cfg.get("authorized_emails", []) if e]
-                if forgot_email.lower().strip() in authorized:
-                    st.success(f"Tu contraseña es: **{cfg.get('password', '')}**")
-                else:
-                    st.error("Este correo no está autorizado. Contacta con el administrador.")
+                st.info("Contacta con el administrador en admin@pontia.tech para recuperar tu contraseña.")
             st.markdown(
                 '<div style="text-align:center;margin-top:.8rem">'
                 '<span style="font-size:.82rem;color:#6B7280">¿Ya la recuerdas?</span></div>',
@@ -349,20 +416,36 @@ def _color_badge(value, good_thresh, bad_thresh, invert=False):
         return "br"
 
 
-def kpi_card(icon, label, value, sub="", badge_class="", badge_text=""):
+def kpi_card(icon, label, value, sub="", badge_class="", badge_text="", delta=None, return_html=False):
+    """Render a KPI card. If return_html=True, returns the HTML string instead of rendering."""
     badge_html = f'<div class="badge {badge_class}">{badge_text}</div>' if badge_class else ""
-    st.markdown(
-        f"""
+    delta_html = ""
+    if delta is not None and delta != "":
+        delta_cls = "kpi-delta-up" if not str(delta).startswith("-") and str(delta).replace("%","").replace("+","").replace(" ","") != "0" else "kpi-delta-down"
+        if str(delta).startswith("-"):
+            delta_cls = "kpi-delta-down"
+        elif str(delta).startswith("+") or (str(delta).replace("%","").replace(" ","").replace(",","").replace(".","").isdigit()):
+            delta_cls = "kpi-delta-up"
+        delta_html = f'<div class="kpi-delta {delta_cls}">{delta}</div>'
+    html = f"""
         <div class="kpi-card">
             <div class="kpi-icon">{icon}</div>
             <div class="kpi-label">{label}</div>
             <div class="kpi-value">{value}</div>
             <div class="kpi-sub">{sub}</div>
+            {delta_html}
             {badge_html}
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """
+    if return_html:
+        return html
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def kpi_grid(cards_html: list):
+    """Render a responsive grid of KPI card HTML strings."""
+    inner = "\n".join(cards_html)
+    st.markdown(f'<div class="kpi-grid">{inner}</div>', unsafe_allow_html=True)
 
 
 def section(title):
@@ -378,6 +461,7 @@ def alert(text, kind="i"):
 # CHARTS
 # ══════════════════════════════════════════════════════════════════════════════
 
+@st.cache_data
 def chart_evolucion_semanal(df: pd.DataFrame):
     """Evolución semanal de KPIs globales agrupados por semana."""
     g = (
@@ -424,8 +508,11 @@ def chart_evolucion_semanal(df: pd.DataFrame):
     return fig
 
 
-def chart_roas_campanas(df: pd.DataFrame):
+def chart_roas_campanas(df: pd.DataFrame, benchmarks=None):
     """ROAS por campaña (barras horizontales, ordenadas)."""
+    if benchmarks is None:
+        benchmarks = _DEFAULT_BENCHMARKS
+    b_roas = benchmarks.get("roas", _DEFAULT_BENCHMARKS["roas"])
     g = (
         df[df["Inversión (€)"].fillna(0) > 0]
         .groupby("ID_Campaña")
@@ -434,7 +521,7 @@ def chart_roas_campanas(df: pd.DataFrame):
     )
     g["ROAS"] = g["Ingresos"] / g["Inversión"]
     g = g.sort_values("ROAS", ascending=True).tail(15)
-    colors = [C["ok"] if r >= 4 else C["warn"] if r >= 1 else C["danger"] for r in g["ROAS"]]
+    colors = [C["ok"] if r >= b_roas["excellent"] else C["warn"] if r >= b_roas["bad"] else C["danger"] for r in g["ROAS"]]
     fig = go.Figure(go.Bar(
         x=g["ROAS"], y=g["ID_Campaña"], orientation="h",
         marker_color=colors,
@@ -442,7 +529,7 @@ def chart_roas_campanas(df: pd.DataFrame):
         text=g["ROAS"].apply(lambda x: f"{x:.2f}x"),
         textposition="outside", textfont=dict(color="#1F2937", size=11),
     ))
-    fig.add_vline(x=1, line_dash="dash", line_color=C["warn"], annotation_text="Break-even",
+    fig.add_vline(x=b_roas["bad"], line_dash="dash", line_color=C["warn"], annotation_text="Break-even",
                   annotation_font=dict(color=C["warn"], size=10))
     _base(fig, "ROAS por Campaña",
           xaxis=dict(**AXIS_BASE, title="ROAS"),
@@ -450,8 +537,11 @@ def chart_roas_campanas(df: pd.DataFrame):
     return fig
 
 
-def chart_cpl_campanas(df: pd.DataFrame):
+def chart_cpl_campanas(df: pd.DataFrame, benchmarks=None):
     """CPL y Leads Válidos por campaña (barras + scatter)."""
+    if benchmarks is None:
+        benchmarks = _DEFAULT_BENCHMARKS
+    b_cpl = benchmarks.get("cpl", _DEFAULT_BENCHMARKS["cpl"])
     g = (
         df.groupby("ID_Campaña")
         .agg(
@@ -463,7 +553,7 @@ def chart_cpl_campanas(df: pd.DataFrame):
         .dropna(subset=["CPL"])
     )
     g = g[g["CPL"] > 0].sort_values("CPL")
-    colors = [C["ok"] if v <= 15 else C["warn"] if v <= 30 else C["danger"] for v in g["CPL"]]
+    colors = [C["ok"] if v <= b_cpl["good"] else C["warn"] if v <= b_cpl["review"] else C["danger"] for v in g["CPL"]]
     fig = go.Figure(go.Bar(
         x=g["CPL"], y=g["ID_Campaña"], orientation="h",
         marker_color=colors,
@@ -472,7 +562,8 @@ def chart_cpl_campanas(df: pd.DataFrame):
         text=g["CPL"].apply(lambda x: f"{x:.1f} €"),
         textposition="outside", textfont=dict(color=C["muted"], size=10),
     ))
-    fig.add_vline(x=15, line_dash="dash", line_color=C["ok"], annotation_text="Óptimo ≤15€",
+    fig.add_vline(x=b_cpl["optimal_line"], line_dash="dash", line_color=C["ok"],
+                  annotation_text=f"Óptimo ≤{b_cpl['optimal_line']}€",
                   annotation_font=dict(color=C["ok"], size=10))
     _base(fig, "CPL Medio por Campaña (€)",
           xaxis=dict(**AXIS_BASE, title="CPL (€)"),
@@ -480,6 +571,7 @@ def chart_cpl_campanas(df: pd.DataFrame):
     return fig
 
 
+@st.cache_data
 def chart_distribucion_canal(df: pd.DataFrame):
     """Inversión y leads por canal (donut)."""
     g = df.groupby("Canal").agg(
@@ -505,6 +597,7 @@ def chart_distribucion_canal(df: pd.DataFrame):
     return fig
 
 
+@st.cache_data
 def chart_mapa_eficiencia(df: pd.DataFrame):
     """Scatter: CPL vs Leads Válidos, tamaño = Inversión."""
     g = (
@@ -551,6 +644,7 @@ def chart_mapa_eficiencia(df: pd.DataFrame):
     return fig
 
 
+@st.cache_data
 def chart_alta_intencion(df: pd.DataFrame):
     """% Alta Intención por semana y canal."""
     # Usar % Alta Intención precalculada si está disponible, si no calcular desde Consideración/Decisión
@@ -592,6 +686,7 @@ def chart_alta_intencion(df: pd.DataFrame):
     return fig
 
 
+@st.cache_data
 def chart_embudo(df: pd.DataFrame):
     """Embudo de conversión global."""
     totals = {
@@ -616,6 +711,7 @@ def chart_embudo(df: pd.DataFrame):
     return fig
 
 
+@st.cache_data
 def chart_motivos_perdida(df: pd.DataFrame):
     """Desglose de motivos de pérdida (donut)."""
     loss_cols = {
@@ -680,6 +776,25 @@ def chart_heatmap_campanas(df: pd.DataFrame, metric="CPL (€)"):
     return fig
 
 
+def chart_programa_canal(df: pd.DataFrame, benchmarks=None, metric="CPL (€)"):
+    """Grouped bar chart: X=Programa, color=Canal, Y=selected metric."""
+    if benchmarks is None:
+        benchmarks = _DEFAULT_BENCHMARKS
+    agg_func = "mean" if metric in ("CPL (€)", "ROAS") else "sum"
+    g = df.groupby(["Programa", "Canal"]).agg(val=(metric, agg_func)).reset_index()
+    if g.empty:
+        return None
+    fig = px.bar(
+        g, x="Programa", y="val", color="Canal",
+        barmode="group",
+        color_discrete_map=CHANNEL_COLORS,
+        labels={"val": metric, "Programa": "Programa"},
+    )
+    _base(fig, f"{metric} por Programa y Canal", height=420)
+    fig.update_layout(legend=dict(**LEGEND_BASE, orientation="h", y=-0.2))
+    return fig
+
+
 def chart_evolucion_campana(df: pd.DataFrame, metric="Leads Válidos"):
     """Evolución de una métrica por campaña a lo largo de las semanas."""
     pivot = df.pivot_table(index="Semana_label", columns="ID_Campaña", values=metric, aggfunc="sum")
@@ -701,6 +816,7 @@ def chart_evolucion_campana(df: pd.DataFrame, metric="Leads Válidos"):
     return fig
 
 
+@st.cache_data
 def chart_perdida_por_semana(df: pd.DataFrame):
     """Evolución semanal de leads perdidos vs entrevistados."""
     g = (
@@ -727,27 +843,32 @@ def chart_perdida_por_semana(df: pd.DataFrame):
 # ══════════════════════════════════════════════════════════════════════════════
 # SEMÁFORO DE DECISIÓN
 # ══════════════════════════════════════════════════════════════════════════════
-def _clasificar_campana(cpl, roas, leads, inv):
+def _clasificar_campana(cpl, roas, leads, inv, benchmarks=None):
     """Devuelve (icono, estado, color_borde, color_fondo, color_texto, color_nombre)."""
+    if benchmarks is None:
+        benchmarks = _DEFAULT_BENCHMARKS
+    b_cpl = benchmarks.get("cpl", _DEFAULT_BENCHMARKS["cpl"])
+    b_roas = benchmarks.get("roas", _DEFAULT_BENCHMARKS["roas"])
+
     if leads == 0 and inv > 0:
         return ("🔴", "PAUSAR",
                 "rgba(239,68,68,.3)", "rgba(239,68,68,.06)", "#DC2626", "#991B1B")
     if pd.isna(cpl) or cpl is None:
         return ("⚪", "S/D", "rgba(107,114,128,.25)", "rgba(107,114,128,.05)", "#6B7280", "#6B7280")
-    if cpl > 40:
+    if cpl > b_cpl["pause"]:
         return ("🔴", "PAUSAR",
                 "rgba(239,68,68,.3)", "rgba(239,68,68,.06)", "#DC2626", "#991B1B")
-    if cpl > 25 or (not pd.isna(roas) and roas is not None and roas < 1):
+    if cpl > b_cpl["review"] or (not pd.isna(roas) and roas is not None and roas < b_roas["bad"]):
         return ("🟡", "REVISAR",
                 "rgba(245,158,11,.3)", "rgba(245,158,11,.06)", "#D97706", "#92400E")
-    if cpl <= 15 and (pd.isna(roas) or roas is None or roas >= 2):
+    if cpl <= b_cpl["good"] and (pd.isna(roas) or roas is None or roas >= b_roas["good"]):
         return ("🟢", "ESCALAR",
                 "rgba(22,163,74,.3)", "rgba(22,163,74,.06)", "#16A34A", "#166534")
     return ("⚪", "MANTENER",
             "rgba(59,111,212,.25)", "rgba(59,111,212,.05)", "#3B6FD4", "#1E3A8A")
 
 
-def panel_decisiones(df: pd.DataFrame):
+def panel_decisiones(df: pd.DataFrame, benchmarks=None):
     """Panel de decisiones con semáforo — para la reunión semanal."""
     g = (
         df.groupby("ID_Campaña")
@@ -763,7 +884,7 @@ def panel_decisiones(df: pd.DataFrame):
     )
     estados = g.apply(
         lambda r: pd.Series(
-            _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inv"]),
+            _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inv"], benchmarks),
             index=["ico", "estado", "borde", "fondo", "texto", "nombre_color"],
         ),
         axis=1,
@@ -872,8 +993,71 @@ def panel_decisiones(df: pd.DataFrame):
 # ══════════════════════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════════════════════
-def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
+def _get_previous_period_data(df: pd.DataFrame, df_all: pd.DataFrame) -> pd.DataFrame:
+    """Returns data from the previous period based on current filters.
+    If a single week is selected, returns previous week.
+    If multiple weeks, returns same-length previous period."""
+    current_weeks = sorted(df["Semana"].unique().tolist())
+    if not current_weeks:
+        return pd.DataFrame()
+    all_weeks = sorted(df_all["Semana"].unique().tolist())
+    n = len(current_weeks)
+    min_week = min(current_weeks)
+    prev_weeks = [w for w in all_weeks if w < min_week]
+    if not prev_weeks:
+        return pd.DataFrame()
+    prev_weeks = prev_weeks[-n:]  # take same number of weeks
+    return df_all[df_all["Semana"].isin(prev_weeks)]
+
+
+def generate_ai_summary(kpis: dict, benchmarks: dict) -> str:
+    """Genera un resumen con IA basado en los KPIs actuales.
+    Requiere API key de Anthropic en st.secrets."""
+    api_key = ""
+    try:
+        api_key = st.secrets.get("anthropic", {}).get("api_key", "")
+    except Exception:
+        pass
+    if not api_key or not _HAS_ANTHROPIC:
+        return ""
+
+    prompt = (
+        f"Eres un analista de marketing digital experto. Analiza estos KPIs de campañas de captación "
+        f"de una escuela de formación online y genera un resumen ejecutivo en español (3-5 puntos clave, "
+        f"máx 200 palabras). Incluye recomendaciones accionables.\n\n"
+        f"KPIs del período:\n"
+        f"- Inversión total: {kpis.get('inv', 0):,.0f} €\n"
+        f"- Leads válidos: {kpis.get('leads', 0)}\n"
+        f"- CPL medio: {kpis.get('cpl', 0):.2f} € (benchmark: ≤{benchmarks['cpl']['good']}€)\n"
+        f"- Entrevistas: {kpis.get('entrevistas', 0)}\n"
+        f"- Matriculados: {kpis.get('matriculados', 0)}\n"
+        f"- Ingresos: {kpis.get('ingresos', 0):,.0f} €\n"
+        f"- ROAS: {kpis.get('roas', 0):.2f}x (benchmark: ≥{benchmarks['roas']['good']}x)\n"
+        f"- Conv. Lead→Matrícula: {kpis.get('conv_mat', 0):.1%}\n"
+    )
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text
+    except Exception as e:
+        return f"Error al generar resumen: {e}"
+
+
+def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame, benchmarks=None):
     """Tab 1: Resumen general con KPIs y gráficas clave."""
+    if benchmarks is None:
+        benchmarks = _load_benchmarks()
+    b_cpl = benchmarks.get("cpl", _DEFAULT_BENCHMARKS["cpl"])
+    b_roas = benchmarks.get("roas", _DEFAULT_BENCHMARKS["roas"])
+    b_ce = benchmarks.get("coste_entrevista", _DEFAULT_BENCHMARKS["coste_entrevista"])
+    b_leads = benchmarks.get("leads", _DEFAULT_BENCHMARKS["leads"])
+    b_mat = benchmarks.get("matriculados", _DEFAULT_BENCHMARKS["matriculados"])
+
     # ── KPIs ──────────────────────────────────────────────────────────────────
     section("KPIs Globales")
     inv = df["Inversión (€)"].sum()
@@ -886,37 +1070,113 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
     roas = ingresos / inv if inv > 0 else None
     conv_mat = matriculados / leads if leads > 0 else None
 
-    cols = st.columns(8)
-    with cols[0]:
-        kpi_card("💰", "Inversión Total", fmt_eur(inv), "acumulado")
-    with cols[1]:
-        kpi_card("📥", "Leads Válidos", fmt_num(leads), "total",
-                 _color_badge(leads, 100, 50), f"{'▲' if leads > 100 else '▼'} {leads}")
-    with cols[2]:
-        badge = _color_badge(cpl, 15, 30, invert=True) if cpl else ""
-        kpi_card("💡", "CPL Medio", fmt_eur(cpl, 2), "coste por lead", badge,
-                 "≤15€ óptimo" if badge == "bg" else ">30€ alto" if badge == "br" else "aceptable")
-    with cols[3]:
-        kpi_card("🤝", "Entrevistas", fmt_num(entrevistas), "total")
-    with cols[4]:
-        badge = _color_badge(coste_ent, 60, 100, invert=True) if coste_ent else ""
-        kpi_card("💼", "Coste/Entrevista", fmt_eur(coste_ent, 1) if coste_ent else "—", "€ por entrevista",
-                 badge, "")
-    with cols[5]:
-        kpi_card("🎓", "Matriculados", fmt_num(matriculados), "total",
-                 _color_badge(matriculados, 5, 2), "")
-    with cols[6]:
-        kpi_card("💵", "Ingresos", fmt_eur(ingresos), "acumulado")
-    with cols[7]:
-        badge = _color_badge(roas, 3, 1) if roas else ""
-        kpi_card("📈", "ROAS Global", f"{roas:.2f}x" if roas else "—", "retorno inversión",
-                 badge, "≥3x bueno" if badge == "bg" else "<1x negativo" if badge == "br" else "")
+    # ── WoW deltas ───────────────────────────────────────────────────────────
+    prev = _get_previous_period_data(df, df_all)
+    deltas = {}
+    if not prev.empty:
+        p_inv = prev["Inversión (€)"].sum()
+        p_leads = int(prev["Leads Válidos"].sum())
+        p_cpl = prev["CPL (€)"].mean()
+        p_entrevistas = int(prev["Entrevistas"].sum())
+        p_coste_ent = p_inv / p_entrevistas if p_entrevistas > 0 else None
+        p_matriculados = int(prev["Matriculados"].sum())
+        p_ingresos = prev["Ingresos (€)"].sum()
+        p_roas = p_ingresos / p_inv if p_inv > 0 else None
+
+        def _delta_pct(curr, prev_val):
+            if prev_val and prev_val != 0 and not pd.isna(prev_val) and curr is not None and not pd.isna(curr):
+                d = (curr - prev_val) / abs(prev_val) * 100
+                sign = "+" if d >= 0 else ""
+                return f"{sign}{d:.1f}%"
+            return None
+
+        deltas["inv"] = _delta_pct(inv, p_inv)
+        deltas["leads"] = _delta_pct(leads, p_leads)
+        deltas["cpl"] = _delta_pct(cpl, p_cpl)
+        deltas["entrevistas"] = _delta_pct(entrevistas, p_entrevistas)
+        deltas["coste_ent"] = _delta_pct(coste_ent, p_coste_ent)
+        deltas["matriculados"] = _delta_pct(matriculados, p_matriculados)
+        deltas["ingresos"] = _delta_pct(ingresos, p_ingresos)
+        deltas["roas"] = _delta_pct(roas, p_roas)
+
+    # ── Budget projection ────────────────────────────────────────────────────
+    budget_proj = None
+    try:
+        dates = df["Fecha de Análisis"].dropna()
+        if not dates.empty:
+            max_date = dates.max()
+            min_date = dates.min()
+            days_elapsed = max((max_date - min_date).days + 1, 1)
+            year_m, month_m = max_date.year, max_date.month
+            days_in_month = calendar.monthrange(year_m, month_m)[1]
+            budget_proj = inv / days_elapsed * days_in_month
+    except Exception:
+        pass
+
+    # ── KPI cards as responsive grid ─────────────────────────────────────────
+    cards = []
+    cards.append(kpi_card("💰", "Inversión Total", fmt_eur(inv), "acumulado",
+                          delta=deltas.get("inv"), return_html=True))
+    cards.append(kpi_card("📥", "Leads Válidos", fmt_num(leads), "total",
+                          _color_badge(leads, b_leads["good"], b_leads["bad"]),
+                          f"{'▲' if leads > b_leads['good'] else '▼'} {leads}",
+                          delta=deltas.get("leads"), return_html=True))
+    badge = _color_badge(cpl, b_cpl["good"], b_cpl["review"], invert=True) if cpl else ""
+    cards.append(kpi_card("💡", "CPL Medio", fmt_eur(cpl, 2), "coste por lead", badge,
+                          f"≤{b_cpl['good']}€ óptimo" if badge == "bg" else f">{b_cpl['review']}€ alto" if badge == "br" else "aceptable",
+                          delta=deltas.get("cpl"), return_html=True))
+    cards.append(kpi_card("🤝", "Entrevistas", fmt_num(entrevistas), "total",
+                          delta=deltas.get("entrevistas"), return_html=True))
+    badge = _color_badge(coste_ent, b_ce["good"], b_ce["bad"], invert=True) if coste_ent else ""
+    cards.append(kpi_card("💼", "Coste/Entrevista", fmt_eur(coste_ent, 1) if coste_ent else "—", "€ por entrevista",
+                          badge, "", delta=deltas.get("coste_ent"), return_html=True))
+    cards.append(kpi_card("🎓", "Matriculados", fmt_num(matriculados), "total",
+                          _color_badge(matriculados, b_mat["good"], b_mat["bad"]), "",
+                          delta=deltas.get("matriculados"), return_html=True))
+    cards.append(kpi_card("💵", "Ingresos", fmt_eur(ingresos), "acumulado",
+                          delta=deltas.get("ingresos"), return_html=True))
+    badge = _color_badge(roas, 3, b_roas["bad"]) if roas else ""
+    cards.append(kpi_card("📈", "ROAS Global", f"{roas:.2f}x" if roas else "—", "retorno inversión",
+                          badge, f"≥3x bueno" if badge == "bg" else f"<{b_roas['bad']}x negativo" if badge == "br" else "",
+                          delta=deltas.get("roas"), return_html=True))
+    # Budget projection card
+    if budget_proj is not None:
+        cards.append(kpi_card("📅", "Proyección Mes", fmt_eur(budget_proj), "gasto estimado mensual",
+                              return_html=True))
+
+    kpi_grid(cards)
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
+    # ── AI Summary (Phase 5) ─────────────────────────────────────────────
+    with st.expander("🤖 Resumen con IA (beta)"):
+        api_key_set = False
+        try:
+            api_key_set = bool(st.secrets.get("anthropic", {}).get("api_key", ""))
+        except Exception:
+            pass
+        if not _HAS_ANTHROPIC:
+            st.info("El módulo `anthropic` no está instalado. Instálalo con `pip install anthropic>=0.40.0`.")
+        elif not api_key_set:
+            st.info("Añade tu API key de Anthropic en Secrets (anthropic.api_key) para activar el resumen con IA.")
+        else:
+            if st.button("Generar resumen con IA", key="ai_summary_btn"):
+                with st.spinner("Generando resumen..."):
+                    kpis_dict = {
+                        "inv": inv, "leads": leads, "cpl": cpl if not pd.isna(cpl) else 0,
+                        "entrevistas": entrevistas, "matriculados": matriculados,
+                        "ingresos": ingresos, "roas": roas if roas else 0,
+                        "conv_mat": conv_mat if conv_mat else 0,
+                    }
+                    summary_text = generate_ai_summary(kpis_dict, benchmarks)
+                    if summary_text:
+                        st.markdown(summary_text)
+                    else:
+                        st.warning("No se pudo generar el resumen.")
+
     # ── Panel de Decisiones ────────────────────────────────────────────────
     section("Decisiones de la Semana")
-    panel_decisiones(df)
+    panel_decisiones(df, benchmarks)
 
     # ── Alertas automáticas ────────────────────────────────────────────────
     campanas_malas = (
@@ -947,14 +1207,20 @@ def tab_resumen(df: pd.DataFrame, df_all: pd.DataFrame):
     c1, c2 = st.columns(2)
     with c1:
         section("ROAS por Campaña")
-        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="roas_resumen")
+        st.plotly_chart(chart_roas_campanas(df, benchmarks), use_container_width=True, config={"displayModeBar": False}, key="roas_resumen")
     with c2:
         section("Distribución por Canal")
         st.plotly_chart(chart_distribucion_canal(df), use_container_width=True, config={"displayModeBar": False}, key="dist_canal_resumen")
 
 
-def tab_campanas(df: pd.DataFrame):
+def tab_campanas(df: pd.DataFrame, benchmarks=None):
     """Tab 2: Análisis detallado por campaña."""
+    if benchmarks is None:
+        benchmarks = _load_benchmarks()
+    b_cpl = benchmarks.get("cpl", _DEFAULT_BENCHMARKS["cpl"])
+    b_roas = benchmarks.get("roas", _DEFAULT_BENCHMARKS["roas"])
+    b_conv = benchmarks.get("conv_lead_matricula", _DEFAULT_BENCHMARKS["conv_lead_matricula"])
+
     section("Tabla de Rendimiento por Campaña")
     st.caption("Los colores de CPL, ROAS y Conv. indican el rendimiento: 🟢 bueno · 🟡 mejorable · 🔴 crítico")
 
@@ -976,8 +1242,8 @@ def tab_campanas(df: pd.DataFrame):
 
     # Columna Estado con semáforo
     summary["Estado"] = summary.apply(
-        lambda r: _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"])[0]
-                  + " " + _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"])[1],
+        lambda r: _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"], benchmarks)[0]
+                  + " " + _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"], benchmarks)[1],
         axis=1,
     )
 
@@ -990,23 +1256,30 @@ def tab_campanas(df: pd.DataFrame):
         "Entrevistas", "Matrículas", "Ingresos €", "ROAS", "Conv. %",
     ]
 
-    # Funciones de color para Styler (reciben valores numéricos originales)
+    # Funciones de color para Styler usando benchmarks
+    cpl_good = b_cpl["good"]
+    cpl_review = b_cpl["review"]
+    roas_good_t = b_roas["good"]
+    roas_bad_t = b_roas["bad"]
+    conv_good_t = b_conv["good"]
+    conv_bad_t = b_conv["bad"]
+
     def _c_cpl(v):
         if pd.isna(v): return ""
-        if v <= 15: return "color: #4CAF50; font-weight: 700"
-        if v <= 25: return "color: #FFC107; font-weight: 700"
+        if v <= cpl_good: return "color: #4CAF50; font-weight: 700"
+        if v <= cpl_review: return "color: #FFC107; font-weight: 700"
         return "color: #EF5350; font-weight: 700"
 
     def _c_roas(v):
         if pd.isna(v): return ""
-        if v >= 3: return "color: #4CAF50; font-weight: 700"
-        if v >= 1: return "color: #FFC107; font-weight: 700"
+        if v >= roas_good_t: return "color: #4CAF50; font-weight: 700"
+        if v >= roas_bad_t: return "color: #FFC107; font-weight: 700"
         return "color: #EF5350; font-weight: 700"
 
     def _c_conv(v):
         if pd.isna(v): return ""
-        if v >= 5: return "color: #4CAF50; font-weight: 700"
-        if v >= 2: return "color: #FFC107; font-weight: 700"
+        if v >= conv_good_t: return "color: #4CAF50; font-weight: 700"
+        if v >= conv_bad_t: return "color: #FFC107; font-weight: 700"
         return "color: #EF5350; font-weight: 700"
 
     styled = (
@@ -1035,14 +1308,26 @@ def tab_campanas(df: pd.DataFrame):
     c1, c2 = st.columns(2)
     with c1:
         section("CPL por Campaña")
-        st.plotly_chart(chart_cpl_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="cpl_campanas")
+        st.plotly_chart(chart_cpl_campanas(df, benchmarks), use_container_width=True, config={"displayModeBar": False}, key="cpl_campanas")
     with c2:
         section("ROAS por Campaña")
-        st.plotly_chart(chart_roas_campanas(df), use_container_width=True, config={"displayModeBar": False}, key="roas_campanas")
+        st.plotly_chart(chart_roas_campanas(df, benchmarks), use_container_width=True, config={"displayModeBar": False}, key="roas_campanas")
 
     section("Mapa de Eficiencia — CPL vs Leads (tamaño del círculo = Inversión)")
     st.caption("Las campañas ideales están en la zona inferior-derecha: bajo CPL y muchos leads.")
     st.plotly_chart(chart_mapa_eficiencia(df), use_container_width=True, config={"displayModeBar": False}, key="mapa_eficiencia")
+
+    # ── Program Attribution (Phase 4) ────────────────────────────────────────
+    section("Rendimiento por Programa y Canal")
+    prog_metric = st.selectbox(
+        "Métrica", ["CPL (€)", "ROAS", "Leads Válidos"],
+        key="prog_canal_metric",
+    )
+    fig_prog = chart_programa_canal(df, benchmarks, prog_metric)
+    if fig_prog:
+        st.plotly_chart(fig_prog, use_container_width=True, config={"displayModeBar": False}, key="prog_canal")
+    else:
+        st.info("Sin datos de programa/canal para este filtro.")
 
     section("% Leads Alta Intención por Semana y Canal")
     fig_ai = chart_alta_intencion(df)
@@ -1321,14 +1606,43 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
 
     st.sidebar.markdown("### 🔍 Filtros")
 
-    semana = st.sidebar.selectbox("Semana", opts["semanas"], index=0)
+    # Week filter mode (Phase 2A)
+    filtro_semana_modo = st.sidebar.radio(
+        "Modo filtro semana", ["Semana individual", "Rango de semanas"], key="filtro_semana_modo"
+    )
+
+    semana = "Todas"
+    semanas_range = None
+    if filtro_semana_modo == "Semana individual":
+        semana = st.sidebar.selectbox("Semana", opts["semanas"], index=0)
+    else:
+        # Rango de semanas con select_slider
+        semanas_num = sorted([int(s.replace("S", "")) for s in opts["semanas"] if s != "Todas"])
+        if len(semanas_num) >= 2:
+            rango = st.sidebar.select_slider(
+                "Rango de semanas",
+                options=semanas_num,
+                value=(min(semanas_num), max(semanas_num)),
+                key="semanas_range_slider",
+            )
+            semanas_range = list(range(rango[0], rango[1] + 1))
+        elif semanas_num:
+            st.sidebar.info(f"Solo hay una semana disponible: S{semanas_num[0]}")
+            semanas_range = semanas_num
+
     canal = st.sidebar.selectbox("Canal", opts["canales"], index=0)
     programa = st.sidebar.selectbox("Programa", opts["programas"], index=0)
+
+    # Campaign search (Phase 2B)
+    search_campana = st.sidebar.text_input("🔍 Buscar campaña", placeholder="Nombre...", key="search_campana")
 
     st.sidebar.markdown("---")
 
     # Estadísticas rápidas
-    df_f = apply_filters(df, semana, canal, programa)
+    df_f = apply_filters(df, semana, canal, programa, semanas_range=semanas_range)
+    # Apply campaign search filter
+    if search_campana and search_campana.strip():
+        df_f = df_f[df_f["ID_Campaña"].str.contains(search_campana.strip(), case=False, na=False)]
     st.sidebar.markdown(
         f"""
         <div style="font-size:.75rem;color:#6B7280;line-height:1.8">
@@ -1360,8 +1674,11 @@ def main():
         st.stop()
 
     # ── Load data ─────────────────────────────────────────────────────────────
-    with st.spinner("Cargando datos…"):
-        df_all = load_data()
+    loading_placeholder = st.empty()
+    with loading_placeholder.container():
+        with st.spinner("Cargando datos…"):
+            df_all = load_data()
+    loading_placeholder.empty()
 
     if df_all.empty:
         st.error("No se pudieron cargar los datos. Revisa la conexión al Google Sheet o el archivo Excel.")
@@ -1391,6 +1708,9 @@ def main():
             unsafe_allow_html=True,
         )
 
+    # ── Load benchmarks ─────────────────────────────────────────────────────
+    benchmarks = _load_benchmarks()
+
     # ── Tabs ──────────────────────────────────────────────────────────────────
     t1, t2, t3, t4, t5 = st.tabs([
         "📊 Resumen General",
@@ -1401,9 +1721,9 @@ def main():
     ])
 
     with t1:
-        tab_resumen(df_filtered, df_all)
+        tab_resumen(df_filtered, df_all, benchmarks)
     with t2:
-        tab_campanas(df_filtered)
+        tab_campanas(df_filtered, benchmarks)
     with t3:
         tab_historico(df_filtered)
     with t4:

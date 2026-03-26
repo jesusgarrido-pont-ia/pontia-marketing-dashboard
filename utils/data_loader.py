@@ -16,6 +16,8 @@ from io import StringIO
 EXCEL_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "Seguimiento_Campanas_Semanal.xlsx")
 SHEET_DATA = "02_DATA_LOG"
 
+# Mapeo de nombres de columna del Google Sheet → nombres esperados por el dashboard
+# (el Google Sheet no tiene acentos/€ en algunos nombres)
 _COLUMN_REMAP = {
     "Fecha de análisis":      "Fecha de Análisis",
     "Fecha de Analisis":      "Fecha de Análisis",
@@ -26,10 +28,12 @@ _COLUMN_REMAP = {
     "Coste Entrevista":       "Coste Entrevista (€)",
     "Ingresos":               "Ingresos (€)",
     "No interesa(Otros)":     "No interesa (Otros)",
-    "No interesa (Otros)":    "No interesa (Otros)",
+    "No interesa (Otros)":    "No interesa (Otros)",  # ya correcto
     "Matriculado en otra":    "Matriculado en otra escuela",
 }
 
+
+# ── Carga principal ────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data() -> pd.DataFrame:
@@ -80,8 +84,13 @@ def _from_sheets(spreadsheet_id: str) -> pd.DataFrame:
 
 
 def _clean_euro_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Limpia columnas con formato monetario europeo de Google Sheets.
+    Maneja tanto '120,33 €' → 120.33 como '1.500,00 €' → 1500.0
+    """
     for col in df.select_dtypes(include="object").columns:
         s = df[col].astype(str).str.strip().str.replace(r"[€%]", "", regex=True).str.strip()
+        # Formato europeo: el punto es separador de miles, la coma es decimal
+        # Ejemplo: "1.500,00" → quitar punto de miles → "1500,00" → "1500.00"
         has_comma = s.str.contains(",", na=False)
         s = s.where(~has_comma, s.str.replace(".", "", regex=False))
         s = s.str.replace(",", ".", regex=False)
@@ -93,16 +102,29 @@ def _clean_euro_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _from_excel() -> pd.DataFrame:
+    path = os.path.abspath(EXCEL_PATH)
+    df = pd.read_excel(path, sheet_name=SHEET_DATA, header=0)
+    df.columns = [c.strip() for c in df.columns]
+    df = df.rename(columns=_COLUMN_REMAP)
+    return _process(df)
+
+
+# ── Procesado ─────────────────────────────────────────────────────────────
+
 def _process(df: pd.DataFrame) -> pd.DataFrame:
+    # Eliminar filas sin campaña ni fecha
     df = df.dropna(subset=["ID_Campaña", "Fecha de Análisis"]).copy()
     df = df[df["ID_Campaña"].astype(str).str.strip() != ""]
 
+    # Fechas y semana
     df["Fecha de Análisis"] = pd.to_datetime(df["Fecha de Análisis"], errors="coerce", dayfirst=True)
     df = df.dropna(subset=["Fecha de Análisis"])
 
     df["Semana"] = pd.to_numeric(df["Semana"], errors="coerce").fillna(0).astype(int)
     df["Semana_label"] = "S" + df["Semana"].astype(str)
 
+    # Columnas numéricas
     NUM_COLS = [
         "Inversión (€)", "Contactos", "Leads Válidos", "CPL (€)",
         "Coste Entrevista (€)", "Entrevistas", "Matriculados", "Ingresos (€)",
@@ -122,12 +144,14 @@ def _process(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # ROAS calculado
     df["ROAS"] = np.where(
         df["Inversión (€)"].fillna(0) > 0,
         df["Ingresos (€)"].fillna(0) / df["Inversión (€)"],
         np.nan,
     )
 
+    # % Alta Intención recalculado cuando falta
     if "% Alta Intención" not in df.columns:
         df["% Alta Intención"] = np.nan
     mask = df["% Alta Intención"].isna() & (df["Leads Válidos"].fillna(0) > 0)
@@ -137,12 +161,14 @@ def _process(df: pd.DataFrame) -> pd.DataFrame:
             / df.loc[mask, "Leads Válidos"]
         )
 
+    # Conv. Lead→Matrícula
     df["Conv. Lead→Mat."] = np.where(
         df["Leads Válidos"].fillna(0) > 0,
         df["Matriculados"].fillna(0) / df["Leads Válidos"],
         np.nan,
     )
 
+    # Tipo de canal simplificado
     df["Tipo Canal"] = df["Canal"].apply(_tipo_canal)
 
     return df.reset_index(drop=True)
@@ -163,6 +189,8 @@ def _tipo_canal(canal: str) -> str:
     return str(canal)
 
 
+# ── Opciones de filtro ─────────────────────────────────────────────────────
+
 def get_filter_options(df: pd.DataFrame) -> dict:
     semanas = sorted(df["Semana"].unique().tolist())
     semana_labels = ["Todas"] + [f"S{s}" for s in semanas if s > 0]
@@ -177,9 +205,12 @@ def get_filter_options(df: pd.DataFrame) -> dict:
     }
 
 
-def apply_filters(df: pd.DataFrame, semana: str, canal: str, programa: str) -> pd.DataFrame:
+def apply_filters(df: pd.DataFrame, semana: str, canal: str, programa: str, semanas_range=None) -> pd.DataFrame:
     out = df.copy()
-    if semana and semana != "Todas":
+    if semanas_range is not None:
+        # Range mode: filter by list of week numbers
+        out = out[out["Semana"].isin(semanas_range)]
+    elif semana and semana != "Todas":
         num = int(semana.replace("S", ""))
         out = out[out["Semana"] == num]
     if canal and canal != "Todos":

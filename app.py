@@ -443,9 +443,15 @@ def kpi_card(icon, label, value, sub="", badge_class="", badge_text="", delta=No
 
 
 def kpi_grid(cards_html: list):
-    """Render a responsive grid of KPI card HTML strings."""
-    inner = "\n".join(cards_html)
-    st.markdown(f'<div class="kpi-grid">{inner}</div>', unsafe_allow_html=True)
+    """Render a responsive grid of KPI card HTML strings using st.columns."""
+    # Use st.columns in rows of 4 for reliable rendering
+    row_size = 4
+    for i in range(0, len(cards_html), row_size):
+        row = cards_html[i:i + row_size]
+        cols = st.columns(len(row))
+        for j, html in enumerate(row):
+            with cols[j]:
+                st.markdown(html, unsafe_allow_html=True)
 
 
 def section(title):

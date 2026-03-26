@@ -258,7 +258,10 @@ a{color:#EE7015}
 .div{height:1px;background:linear-gradient(90deg,#E5E7EB,transparent);margin:.8rem 0}
 
 /* ── Chart containers (st.container border) ── */
-[data-testid="stVerticalBlockBorderWrapper"]{background:#FFFFFF!important;border-radius:12px!important}
+[data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stVerticalBlockBorderWrapper"]>div,
+div[data-testid="stVerticalBlock"]>div[style*="border"]{background:#FFFFFF!important;border-radius:12px!important}
+div.stMainBlockContainer [data-testid="stVerticalBlockBorderWrapper"]{background-color:#FFFFFF!important}
 
 /* ── DataFrames ───────────────────────────── */
 .stDataFrame{border-radius:10px}

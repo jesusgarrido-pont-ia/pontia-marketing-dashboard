@@ -150,7 +150,7 @@ PLOT_BASE = dict(
     font=dict(family="Manrope, sans-serif", color="#0A0909", size=12),
     title_font=dict(family="Manrope, sans-serif", color="#0A0909", size=14),
     legend=LEGEND_BASE,
-    margin=dict(l=10, r=10, t=40, b=10),
+    margin=dict(l=20, r=20, t=50, b=20),
     hoverlabel=dict(bgcolor="#FFFFFF", bordercolor=C["border"], font_family="Manrope", font_color="#0A0909"),
 )
 
@@ -260,8 +260,8 @@ a{color:#EE7015}
 /* ── Charts & DataFrames (card frame) ────── */
 [data-testid="stVegaLiteChart"],
 /* ── Charts & DataFrames (card frame) ────── */
-.stPlotlyChart>div{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:1rem .8rem .5rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem}
-.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:.5rem;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem}
+.stPlotlyChart{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem;overflow:visible}
+.stDataFrame{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:.6rem}
 
 /* ── Force ALL text to dark on light bg ──── */
 .stMarkdown,.stMarkdown p,.stMarkdown span,.stMarkdown div,.stMarkdown li{color:#0A0909!important}

@@ -1628,19 +1628,24 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     if filtro_semana_modo == "Semana individual":
         semana = st.sidebar.selectbox("Semana", opts["semanas"], index=0)
     else:
-        # Rango de semanas con select_slider
-        semanas_num = sorted([int(s.replace("S", "")) for s in opts["semanas"] if s != "Todas"])
-        if len(semanas_num) >= 2:
+        # Rango: usar las semanas reales que existen en los datos
+        semanas_reales = sorted(df["Semana"].dropna().unique().tolist())
+        semanas_int = [int(s) for s in semanas_reales]
+        if len(semanas_int) >= 2:
             rango = st.sidebar.select_slider(
                 "Rango de semanas",
-                options=semanas_num,
-                value=(min(semanas_num), max(semanas_num)),
+                options=semanas_int,
+                value=(min(semanas_int), max(semanas_int)),
                 key="semanas_range_slider",
             )
-            semanas_range = list(range(rango[0], rango[1] + 1))
-        elif semanas_num:
-            st.sidebar.info(f"Solo hay una semana disponible: S{semanas_num[0]}")
-            semanas_range = semanas_num
+            # Solo filtrar si NO están todas seleccionadas
+            selected = [s for s in semanas_int if rango[0] <= s <= rango[1]]
+            if set(selected) != set(semanas_int):
+                semanas_range = selected
+            # else: semanas_range stays None → no filter → same as "Todas"
+        elif semanas_int:
+            st.sidebar.info(f"Solo hay una semana disponible: S{semanas_int[0]}")
+            semanas_range = semanas_int
 
     canales_sel = st.sidebar.multiselect("Canal", opts["canales"][1:], default=[], placeholder="Todos")
     programas_sel = st.sidebar.multiselect("Programa", opts["programas"][1:], default=[], placeholder="Todos")

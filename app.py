@@ -257,6 +257,9 @@ a{color:#EE7015}
 /* ── Divider ──────────────────────────────── */
 .div{height:1px;background:linear-gradient(90deg,#E5E7EB,transparent);margin:.8rem 0}
 
+/* ── Chart containers (st.container border) ── */
+[data-testid="stVerticalBlockBorderWrapper"]{background:#FFFFFF!important;border-radius:12px!important}
+
 /* ── DataFrames ───────────────────────────── */
 .stDataFrame{border-radius:10px}
 

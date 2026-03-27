@@ -2205,44 +2205,51 @@ def _tab_diagnostico_hubspot():
         elif "pipeline_stages_error" in diag:
             st.error(f"Error: {diag['pipeline_stages_error']}")
 
-        # 4. Muestra de contactos
-        st.markdown("### 👤 Muestra de contactos (5 primeros)")
-        if "sample_contacts" in diag:
-            _personal_keys = {"email", "firstname", "lastname", "first_name", "last_name",
-                             "phone", "mobilephone", "address", "city", "zip", "fax",
-                             "nombre", "apellido", "telefono", "direccion"}
-            for i, contact in enumerate(diag["sample_contacts"]):
-                with st.expander(f"Contacto {i+1} (datos anonimizados)"):
-                    filled = {k: v for k, v in contact.items()
-                              if v and v != "" and k.lower() not in _personal_keys
-                              and not any(p in k.lower() for p in ["email", "name", "phone", "ip_"])}
-                    for k, v in sorted(filled.items()):
-                        st.markdown(f"- **{k}**: {v}")
+        # 4. Muestra de contactos por fuente de tráfico
+        st.markdown("### 👤 Contactos por fuente de tráfico")
+        st.markdown(
+            '<p style="font-size:.78rem;color:#808080">'
+            'Mostrando las propiedades de campaña/fuente para contactos de pago y orgánicos.'
+            '</p>',
+            unsafe_allow_html=True,
+        )
 
-            # Exportar muestras como CSV — ANONIMIZADO (sin datos personales)
-            df_samples = pd.DataFrame(diag["sample_contacts"])
-            # Eliminar columnas con datos personales
-            personal_cols = [c for c in df_samples.columns if any(k in c.lower() for k in [
-                "email", "firstname", "lastname", "first_name", "last_name", "nombre",
-                "apellido", "phone", "telefono", "address", "direccion", "ip_",
-                "hs_email", "mobilephone", "fax", "city", "ciudad", "zip", "postal",
-            ])]
-            df_anon = df_samples.drop(columns=personal_cols, errors="ignore")
+        all_sample_contacts = []
+        for source_type in ["PAID_SEARCH", "PAID_SOCIAL", "ORGANIC_SEARCH"]:
+            key = f"sample_contacts_{source_type}"
+            if key in diag and diag[key]:
+                st.markdown(f"**🔹 {source_type}** ({len(diag[key])} contactos)")
+                df_source = pd.DataFrame(diag[key])
+                # Mostrar solo columnas con valores
+                cols_with_data = [c for c in df_source.columns if df_source[c].notna().any() and (df_source[c] != "").any()]
+                if cols_with_data:
+                    st.dataframe(df_source[cols_with_data], use_container_width=True, hide_index=True)
+                all_sample_contacts.extend(diag[key])
+            elif key in diag:
+                st.markdown(f"**🔹 {source_type}**: sin contactos")
+
+        if all_sample_contacts:
+            df_all_samples = pd.DataFrame(all_sample_contacts)
             st.download_button(
-                "⬇️ Descargar muestra contactos ANÓNIMA (CSV)",
-                df_anon.to_csv(index=False),
-                "hubspot_sample_contacts_anon.csv",
+                "⬇️ Descargar muestra contactos por fuente (CSV)",
+                df_all_samples.to_csv(index=False),
+                "hubspot_contacts_by_source.csv",
                 "text/csv",
             )
 
         # 5. Muestra de deals
-        st.markdown("### 💰 Muestra de deals (5 primeros)")
-        if "sample_deals" in diag:
-            for i, deal in enumerate(diag["sample_deals"]):
-                with st.expander(f"Deal {i+1}: {deal.get('dealname', 'sin nombre')}"):
-                    filled = {k: v for k, v in deal.items() if v and v != ""}
-                    for k, v in sorted(filled.items()):
-                        st.markdown(f"- **{k}**: {v}")
+        st.markdown("### 💰 Muestra de deals (20 primeros)")
+        if "sample_deals" in diag and diag["sample_deals"]:
+            df_deals = pd.DataFrame(diag["sample_deals"])
+            # Quitar columnas vacías
+            cols_with_data = [c for c in df_deals.columns if df_deals[c].notna().any() and (df_deals[c] != "").any()]
+            st.dataframe(df_deals[cols_with_data], use_container_width=True, hide_index=True)
+            st.download_button(
+                "⬇️ Descargar muestra deals (CSV)",
+                df_deals[cols_with_data].to_csv(index=False),
+                "hubspot_sample_deals.csv",
+                "text/csv",
+            )
 
 
 def main():

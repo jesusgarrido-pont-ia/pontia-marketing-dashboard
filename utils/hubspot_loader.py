@@ -450,28 +450,51 @@ def diagnose_hubspot() -> dict:
     except Exception as e:
         result["pipeline_stages_error"] = str(e)
 
-    # 4. Muestra de 5 contactos con TODAS sus propiedades
+    # 4. Muestra de contactos con propiedades de campaña/fuente
+    _CONTACT_CAMPAIGN_PROPS = [
+        "hs_analytics_source", "hs_analytics_source_data_1", "hs_analytics_source_data_2",
+        "hs_analytics_first_touch_converting_campaign", "hs_analytics_last_touch_converting_campaign",
+        "hs_latest_source", "hs_latest_source_data_1", "hs_latest_source_data_2",
+        "hs_facebook_ad_clicked", "hs_linkedin_ad_clicked",
+        "first_conversion_event_name", "recent_conversion_event_name",
+        "hs_lead_status", "lifecyclestage", "createdate",
+    ]
     try:
-        resp = requests.get(
-            f"{HUBSPOT_BASE}/crm/v3/objects/contacts",
-            headers=_headers(token),
-            params={"limit": 5, "propertiesWithHistory": "false"},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        result["sample_contacts"] = [
-            item.get("properties", {})
-            for item in resp.json().get("results", [])
-        ]
+        # Traer 50 contactos de pago (PAID_SEARCH o PAID_SOCIAL)
+        for source_type in ["PAID_SEARCH", "PAID_SOCIAL", "ORGANIC_SEARCH"]:
+            body = {
+                "limit": 20,
+                "properties": _CONTACT_CAMPAIGN_PROPS,
+                "filterGroups": [{
+                    "filters": [{
+                        "propertyName": "hs_analytics_source",
+                        "operator": "EQ",
+                        "value": source_type,
+                    }]
+                }],
+            }
+            resp = requests.post(
+                f"{HUBSPOT_BASE}/crm/v3/objects/contacts/search",
+                headers=_headers(token), json=body, timeout=15,
+            )
+            if resp.status_code == 200:
+                contacts = [item.get("properties", {}) for item in resp.json().get("results", [])]
+                result[f"sample_contacts_{source_type}"] = contacts
     except Exception as e:
         result["sample_contacts_error"] = str(e)
 
-    # 5. Muestra de 5 deals con TODAS sus propiedades
+    # 5. Muestra de deals con propiedades clave
+    _DEAL_KEY_PROPS = [
+        "dealname", "dealstage", "amount", "pipeline", "closedate", "createdate",
+        "closed_lost_reason", "closed_won_reason", "deal_master", "master_matriculado",
+        "hs_analytics_source", "hs_analytics_source_data_1", "hs_analytics_source_data_2",
+        "hs_is_closed_won", "hs_is_closed_lost",
+    ]
     try:
         resp = requests.get(
             f"{HUBSPOT_BASE}/crm/v3/objects/deals",
             headers=_headers(token),
-            params={"limit": 5, "propertiesWithHistory": "false"},
+            params={"limit": 20, "properties": ",".join(_DEAL_KEY_PROPS)},
             timeout=15,
         )
         resp.raise_for_status()

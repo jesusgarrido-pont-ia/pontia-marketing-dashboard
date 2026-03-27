@@ -2156,9 +2156,16 @@ def _tab_diagnostico_hubspot():
             else:
                 st.warning("No se encontraron propiedades con nombres relacionados a campañas/UTM")
 
+            df_all_props = pd.DataFrame(props)
             with st.expander("Ver TODAS las propiedades de contactos"):
-                df_all_props = pd.DataFrame(props)
                 st.dataframe(df_all_props, use_container_width=True, hide_index=True)
+
+            st.download_button(
+                "⬇️ Descargar propiedades de contactos (CSV)",
+                df_all_props.to_csv(index=False),
+                "hubspot_contact_properties.csv",
+                "text/csv",
+            )
         elif "contact_properties_error" in diag:
             st.error(f"Error: {diag['contact_properties_error']}")
 
@@ -2178,9 +2185,16 @@ def _tab_diagnostico_hubspot():
                 df_rel = pd.DataFrame(relevant)
                 st.dataframe(df_rel, use_container_width=True, hide_index=True)
 
+            df_all_deal_props = pd.DataFrame(props)
             with st.expander("Ver TODAS las propiedades de deals"):
-                df_all_props = pd.DataFrame(props)
-                st.dataframe(df_all_props, use_container_width=True, hide_index=True)
+                st.dataframe(df_all_deal_props, use_container_width=True, hide_index=True)
+
+            st.download_button(
+                "⬇️ Descargar propiedades de deals (CSV)",
+                df_all_deal_props.to_csv(index=False),
+                "hubspot_deal_properties.csv",
+                "text/csv",
+            )
 
         # 3. Pipeline y etapas
         st.markdown("### 🔄 Pipeline — Etapas")
@@ -2194,12 +2208,32 @@ def _tab_diagnostico_hubspot():
         # 4. Muestra de contactos
         st.markdown("### 👤 Muestra de contactos (5 primeros)")
         if "sample_contacts" in diag:
+            _personal_keys = {"email", "firstname", "lastname", "first_name", "last_name",
+                             "phone", "mobilephone", "address", "city", "zip", "fax",
+                             "nombre", "apellido", "telefono", "direccion"}
             for i, contact in enumerate(diag["sample_contacts"]):
-                with st.expander(f"Contacto {i+1}: {contact.get('email', 'sin email')}"):
-                    # Mostrar solo propiedades con valor
-                    filled = {k: v for k, v in contact.items() if v and v != ""}
+                with st.expander(f"Contacto {i+1} (datos anonimizados)"):
+                    filled = {k: v for k, v in contact.items()
+                              if v and v != "" and k.lower() not in _personal_keys
+                              and not any(p in k.lower() for p in ["email", "name", "phone", "ip_"])}
                     for k, v in sorted(filled.items()):
                         st.markdown(f"- **{k}**: {v}")
+
+            # Exportar muestras como CSV — ANONIMIZADO (sin datos personales)
+            df_samples = pd.DataFrame(diag["sample_contacts"])
+            # Eliminar columnas con datos personales
+            personal_cols = [c for c in df_samples.columns if any(k in c.lower() for k in [
+                "email", "firstname", "lastname", "first_name", "last_name", "nombre",
+                "apellido", "phone", "telefono", "address", "direccion", "ip_",
+                "hs_email", "mobilephone", "fax", "city", "ciudad", "zip", "postal",
+            ])]
+            df_anon = df_samples.drop(columns=personal_cols, errors="ignore")
+            st.download_button(
+                "⬇️ Descargar muestra contactos ANÓNIMA (CSV)",
+                df_anon.to_csv(index=False),
+                "hubspot_sample_contacts_anon.csv",
+                "text/csv",
+            )
 
         # 5. Muestra de deals
         st.markdown("### 💰 Muestra de deals (5 primeros)")

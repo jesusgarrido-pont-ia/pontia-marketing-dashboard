@@ -2205,35 +2205,52 @@ def _tab_diagnostico_hubspot():
         elif "pipeline_stages_error" in diag:
             st.error(f"Error: {diag['pipeline_stages_error']}")
 
-        # 4. Muestra de contactos por fuente de tráfico
-        st.markdown("### 👤 Contactos por fuente de tráfico")
+        # 4. Contactos RECIENTES de pago — todas las propiedades con valor
+        st.markdown("### 👤 Contactos recientes de pago (últimos 30 días)")
         st.markdown(
             '<p style="font-size:.78rem;color:#808080">'
-            'Mostrando las propiedades de campaña/fuente para contactos de pago y orgánicos.'
+            'Mostrando TODAS las propiedades con valor para encontrar dónde está el nombre de campaña.'
             '</p>',
             unsafe_allow_html=True,
         )
 
+        _personal_keys_set = {"email", "firstname", "lastname", "first_name", "last_name",
+                     "phone", "mobilephone", "address", "city", "zip", "fax",
+                     "nombre", "apellido", "telefono", "direccion", "hs_ip_timezone",
+                     "ip_city", "ip_state", "ip_country", "ip_latlon"}
+
         all_sample_contacts = []
-        for source_type in ["PAID_SEARCH", "PAID_SOCIAL", "ORGANIC_SEARCH"]:
+        for source_type in ["PAID_SEARCH", "PAID_SOCIAL"]:
             key = f"sample_contacts_{source_type}"
             if key in diag and diag[key]:
-                st.markdown(f"**🔹 {source_type}** ({len(diag[key])} contactos)")
-                df_source = pd.DataFrame(diag[key])
-                # Mostrar solo columnas con valores
-                cols_with_data = [c for c in df_source.columns if df_source[c].notna().any() and (df_source[c] != "").any()]
-                if cols_with_data:
-                    st.dataframe(df_source[cols_with_data], use_container_width=True, hide_index=True)
+                st.markdown(f"#### 🔹 {source_type} ({len(diag[key])} contactos recientes)")
+                for i, contact in enumerate(diag[key]):
+                    # Filtrar datos personales
+                    safe = {k: v for k, v in contact.items()
+                            if k.lower() not in _personal_keys_set
+                            and not any(p in k.lower() for p in ["email", "name", "phone", "ip_"])}
+                    with st.expander(f"Contacto {i+1} — {len(safe)} propiedades con valor"):
+                        for k, v in sorted(safe.items()):
+                            # Resaltar propiedades que podrían contener nombre de campaña
+                            if any(w in k.lower() for w in ["campaign", "source", "ad", "canal", "utm"]):
+                                st.markdown(f"- 🎯 **{k}**: `{v}`")
+                            else:
+                                st.markdown(f"- {k}: {v}")
                 all_sample_contacts.extend(diag[key])
             elif key in diag:
-                st.markdown(f"**🔹 {source_type}**: sin contactos")
+                st.markdown(f"**🔹 {source_type}**: sin contactos en últimos 30 días")
 
         if all_sample_contacts:
             df_all_samples = pd.DataFrame(all_sample_contacts)
+            # Anonimizar
+            personal_cols = [c for c in df_all_samples.columns if any(k in c.lower() for k in [
+                "email", "firstname", "lastname", "name", "phone", "address", "ip_", "fax", "city", "zip",
+            ])]
+            df_anon = df_all_samples.drop(columns=personal_cols, errors="ignore")
             st.download_button(
-                "⬇️ Descargar muestra contactos por fuente (CSV)",
-                df_all_samples.to_csv(index=False),
-                "hubspot_contacts_by_source.csv",
+                "⬇️ Descargar contactos recientes ANÓNIMOS (CSV)",
+                df_anon.to_csv(index=False),
+                "hubspot_recent_contacts_anon.csv",
                 "text/csv",
             )
 

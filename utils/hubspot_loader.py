@@ -450,27 +450,33 @@ def diagnose_hubspot() -> dict:
     except Exception as e:
         result["pipeline_stages_error"] = str(e)
 
-    # 4. Muestra de contactos con propiedades de campaña/fuente
-    _CONTACT_CAMPAIGN_PROPS = [
-        "hs_analytics_source", "hs_analytics_source_data_1", "hs_analytics_source_data_2",
-        "hs_analytics_first_touch_converting_campaign", "hs_analytics_last_touch_converting_campaign",
-        "hs_latest_source", "hs_latest_source_data_1", "hs_latest_source_data_2",
-        "hs_facebook_ad_clicked", "hs_linkedin_ad_clicked",
-        "first_conversion_event_name", "recent_conversion_event_name",
-        "hs_lead_status", "lifecyclestage", "createdate",
-    ]
+    # 4. Muestra de contactos RECIENTES con TODAS las propiedades
+    # Para descubrir dónde HubSpot guarda el nombre de campaña de ads
     try:
-        # Traer 50 contactos de pago (PAID_SEARCH o PAID_SOCIAL)
-        for source_type in ["PAID_SEARCH", "PAID_SOCIAL", "ORGANIC_SEARCH"]:
+        # Obtener nombres de TODAS las propiedades
+        all_prop_names = [p["name"] for p in result.get("contact_properties", [])]
+
+        # Traer contactos recientes (últimos 30 días) de pago con TODAS las propiedades
+        since_30d = str(int((datetime.utcnow() - timedelta(days=30)).timestamp() * 1000))
+
+        for source_type in ["PAID_SEARCH", "PAID_SOCIAL"]:
             body = {
-                "limit": 20,
-                "properties": _CONTACT_CAMPAIGN_PROPS,
+                "limit": 10,
+                "properties": all_prop_names[:200],  # API limit ~200 props per request
+                "sorts": [{"propertyName": "createdate", "direction": "DESCENDING"}],
                 "filterGroups": [{
-                    "filters": [{
-                        "propertyName": "hs_analytics_source",
-                        "operator": "EQ",
-                        "value": source_type,
-                    }]
+                    "filters": [
+                        {
+                            "propertyName": "hs_analytics_source",
+                            "operator": "EQ",
+                            "value": source_type,
+                        },
+                        {
+                            "propertyName": "createdate",
+                            "operator": "GTE",
+                            "value": since_30d,
+                        },
+                    ]
                 }],
             }
             resp = requests.post(
@@ -478,8 +484,29 @@ def diagnose_hubspot() -> dict:
                 headers=_headers(token), json=body, timeout=15,
             )
             if resp.status_code == 200:
-                contacts = [item.get("properties", {}) for item in resp.json().get("results", [])]
+                contacts_raw = resp.json().get("results", [])
+                # Solo guardar propiedades que tienen valor (no vacías)
+                contacts = []
+                for item in contacts_raw:
+                    props = item.get("properties", {})
+                    filled = {k: v for k, v in props.items() if v and v.strip()}
+                    contacts.append(filled)
                 result[f"sample_contacts_{source_type}"] = contacts
+
+        # También traer las actividades de ads (ad interactions) del primer contacto
+        for source_type in ["PAID_SEARCH", "PAID_SOCIAL"]:
+            key = f"sample_contacts_{source_type}"
+            if key in result and result[key]:
+                contact_id = result[key][0].get("hs_object_id")
+                if contact_id:
+                    # Obtener timeline/actividad de este contacto
+                    resp = requests.get(
+                        f"{HUBSPOT_BASE}/crm/v3/objects/contacts/{contact_id}/associations/deals",
+                        headers=_headers(token), timeout=15,
+                    )
+                    if resp.status_code == 200:
+                        result[f"contact_{source_type}_deals"] = resp.json().get("results", [])
+
     except Exception as e:
         result["sample_contacts_error"] = str(e)
 

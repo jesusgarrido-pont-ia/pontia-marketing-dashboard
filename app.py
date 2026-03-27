@@ -2114,6 +2114,103 @@ Los semáforos del dashboard usan estos umbrales (configurables en `config.yaml`
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
+def _tab_diagnostico_hubspot():
+    """Pestaña temporal de diagnóstico para analizar propiedades de HubSpot."""
+    section("DIAGNÓSTICO HUBSPOT")
+    st.markdown(
+        '<p style="font-size:.8rem;color:#808080">'
+        'Esta pestaña muestra todas las propiedades disponibles en tu HubSpot '
+        'para identificar cuáles mapear al Google Sheet. Se eliminará cuando la integración esté completa.'
+        '</p>',
+        unsafe_allow_html=True,
+    )
+
+    if st.button("🔍 Analizar HubSpot", type="primary"):
+        with st.spinner("Conectando con HubSpot API..."):
+            try:
+                from utils.hubspot_loader import diagnose_hubspot
+                diag = diagnose_hubspot()
+            except Exception as e:
+                st.error(f"Error conectando: {e}")
+                return
+
+        if "error" in diag:
+            st.error(diag["error"])
+            return
+
+        # 1. Propiedades de contactos
+        st.markdown("### 📋 Propiedades de Contactos")
+        if "contact_properties" in diag:
+            props = diag["contact_properties"]
+            st.markdown(f"**{len(props)} propiedades encontradas.** Buscando las relevantes...")
+
+            # Filtrar propiedades interesantes (que podrían mapear a campaña/canal/fuente)
+            keywords = ["campaign", "campaña", "source", "fuente", "medium", "canal", "channel",
+                        "utm", "ad", "lead", "origen", "origin", "referr"]
+            relevant = [p for p in props if any(k in p["name"].lower() or k in p["label"].lower() for k in keywords)]
+
+            if relevant:
+                st.markdown("**🎯 Propiedades relevantes (posible mapeo a campaña/canal):**")
+                df_rel = pd.DataFrame(relevant)
+                st.dataframe(df_rel, use_container_width=True, hide_index=True)
+            else:
+                st.warning("No se encontraron propiedades con nombres relacionados a campañas/UTM")
+
+            with st.expander("Ver TODAS las propiedades de contactos"):
+                df_all_props = pd.DataFrame(props)
+                st.dataframe(df_all_props, use_container_width=True, hide_index=True)
+        elif "contact_properties_error" in diag:
+            st.error(f"Error: {diag['contact_properties_error']}")
+
+        # 2. Propiedades de deals
+        st.markdown("### 💼 Propiedades de Deals")
+        if "deal_properties" in diag:
+            props = diag["deal_properties"]
+            st.markdown(f"**{len(props)} propiedades encontradas.**")
+
+            keywords_deal = ["campaign", "campaña", "stage", "etapa", "amount", "importe",
+                             "revenue", "ingreso", "lost", "perdid", "reason", "motivo",
+                             "source", "fuente", "canal"]
+            relevant = [p for p in props if any(k in p["name"].lower() or k in p["label"].lower() for k in keywords_deal)]
+
+            if relevant:
+                st.markdown("**🎯 Propiedades relevantes:**")
+                df_rel = pd.DataFrame(relevant)
+                st.dataframe(df_rel, use_container_width=True, hide_index=True)
+
+            with st.expander("Ver TODAS las propiedades de deals"):
+                df_all_props = pd.DataFrame(props)
+                st.dataframe(df_all_props, use_container_width=True, hide_index=True)
+
+        # 3. Pipeline y etapas
+        st.markdown("### 🔄 Pipeline — Etapas")
+        if "pipeline_stages" in diag:
+            stages = diag["pipeline_stages"]
+            for stage_id, stage_name in stages.items():
+                st.markdown(f"- `{stage_id}` → **{stage_name}**")
+        elif "pipeline_stages_error" in diag:
+            st.error(f"Error: {diag['pipeline_stages_error']}")
+
+        # 4. Muestra de contactos
+        st.markdown("### 👤 Muestra de contactos (5 primeros)")
+        if "sample_contacts" in diag:
+            for i, contact in enumerate(diag["sample_contacts"]):
+                with st.expander(f"Contacto {i+1}: {contact.get('email', 'sin email')}"):
+                    # Mostrar solo propiedades con valor
+                    filled = {k: v for k, v in contact.items() if v and v != ""}
+                    for k, v in sorted(filled.items()):
+                        st.markdown(f"- **{k}**: {v}")
+
+        # 5. Muestra de deals
+        st.markdown("### 💰 Muestra de deals (5 primeros)")
+        if "sample_deals" in diag:
+            for i, deal in enumerate(diag["sample_deals"]):
+                with st.expander(f"Deal {i+1}: {deal.get('dealname', 'sin nombre')}"):
+                    filled = {k: v for k, v in deal.items() if v and v != ""}
+                    for k, v in sorted(filled.items()):
+                        st.markdown(f"- **{k}**: {v}")
+
+
 def main():
     inject_css()
 
@@ -2168,7 +2265,7 @@ def main():
     benchmarks = _load_benchmarks()
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    t0, t1, t2, t3, t4, t5, t6 = st.tabs([
+    t0, t1, t2, t3, t4, t5, t6, t7 = st.tabs([
         "🎯 Panel de Decisiones",
         "📊 Resumen General",
         "🎯 Por Campaña",
@@ -2176,6 +2273,7 @@ def main():
         "🚨 Análisis de Pérdidas",
         "📋 Datos",
         "📖 Guía de Uso",
+        "🔧 Diagnóstico HubSpot",
     ])
 
     with t0:
@@ -2192,6 +2290,8 @@ def main():
         tab_datos(df_filtered)
     with t6:
         tab_guia()
+    with t7:
+        _tab_diagnostico_hubspot()
 
     # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown(

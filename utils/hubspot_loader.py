@@ -389,7 +389,101 @@ def load_hubspot_data(since_days: int = 180) -> pd.DataFrame:
     return _transform_to_weekly(contacts, deals, deal_contact_map, stages)
 
 
-# ── Diagnóstico de UTMs ──────────────────────────────────────────────────────
+# ── Diagnóstico completo de HubSpot ───────────────────────────────────────────
+
+def diagnose_hubspot() -> dict:
+    """Diagnóstico: lista todas las propiedades de contactos y deals,
+    las etapas del pipeline, y una muestra de contactos con sus valores.
+
+    Devuelve un dict con toda la info necesaria para mapear HubSpot → Google Sheet.
+    """
+    token = _get_token()
+    if not token:
+        return {"error": "No HubSpot token configured"}
+
+    result = {}
+
+    # 1. Propiedades de contactos
+    try:
+        resp = requests.get(
+            f"{HUBSPOT_BASE}/crm/v3/properties/contacts",
+            headers=_headers(token), timeout=15,
+        )
+        resp.raise_for_status()
+        props = resp.json().get("results", [])
+        result["contact_properties"] = [
+            {
+                "name": p["name"],
+                "label": p["label"],
+                "type": p["type"],
+                "group": p.get("groupName", ""),
+            }
+            for p in props
+        ]
+    except Exception as e:
+        result["contact_properties_error"] = str(e)
+
+    # 2. Propiedades de deals
+    try:
+        resp = requests.get(
+            f"{HUBSPOT_BASE}/crm/v3/properties/deals",
+            headers=_headers(token), timeout=15,
+        )
+        resp.raise_for_status()
+        props = resp.json().get("results", [])
+        result["deal_properties"] = [
+            {
+                "name": p["name"],
+                "label": p["label"],
+                "type": p["type"],
+                "group": p.get("groupName", ""),
+            }
+            for p in props
+        ]
+    except Exception as e:
+        result["deal_properties_error"] = str(e)
+
+    # 3. Pipeline y etapas
+    try:
+        stages = _fetch_pipeline_stages(token)
+        result["pipeline_stages"] = stages
+    except Exception as e:
+        result["pipeline_stages_error"] = str(e)
+
+    # 4. Muestra de 5 contactos con TODAS sus propiedades
+    try:
+        resp = requests.get(
+            f"{HUBSPOT_BASE}/crm/v3/objects/contacts",
+            headers=_headers(token),
+            params={"limit": 5, "propertiesWithHistory": "false"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        result["sample_contacts"] = [
+            item.get("properties", {})
+            for item in resp.json().get("results", [])
+        ]
+    except Exception as e:
+        result["sample_contacts_error"] = str(e)
+
+    # 5. Muestra de 5 deals con TODAS sus propiedades
+    try:
+        resp = requests.get(
+            f"{HUBSPOT_BASE}/crm/v3/objects/deals",
+            headers=_headers(token),
+            params={"limit": 5, "propertiesWithHistory": "false"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        result["sample_deals"] = [
+            item.get("properties", {})
+            for item in resp.json().get("results", [])
+        ]
+    except Exception as e:
+        result["sample_deals_error"] = str(e)
+
+    return result
+
 
 def diagnose_utms(gs_campaign_ids: list[str] | None = None) -> dict:
     """Diagnóstico: compara utm_campaign de HubSpot con IDs del Google Sheet.

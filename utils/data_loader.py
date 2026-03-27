@@ -37,13 +37,79 @@ _COLUMN_REMAP = {
 
 # ── Carga principal ────────────────────────────────────────────────────────
 
+def _get_hubspot_token() -> str:
+    """Verifica si hay un token de HubSpot configurado."""
+    try:
+        return st.secrets.get("hubspot", {}).get("access_token", "").strip()
+    except Exception:
+        return ""
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data() -> pd.DataFrame:
-    """Devuelve el DataFrame de campañas limpio y enriquecido. Fuente: Google Sheets."""
+    """Devuelve el DataFrame de campañas limpio y enriquecido.
+
+    Fuente prioritaria: HubSpot API + Ads APIs (si configurados).
+    Fallback: Google Sheets.
+    """
+    hubspot_token = _get_hubspot_token()
+    if hubspot_token:
+        try:
+            from utils.hubspot_loader import load_hubspot_data
+            from utils.ads_loader import load_all_ads_spend
+
+            df_hs = load_hubspot_data()
+            if not df_hs.empty:
+                # Merge con datos de inversión de Ads APIs
+                df_ads = load_all_ads_spend()
+                if not df_ads.empty:
+                    df_hs = _merge_investment_data(df_hs, df_ads)
+                return _process(df_hs)
+        except Exception as e:
+            st.warning(f"⚠️ Error cargando desde HubSpot, usando Google Sheets: {e}")
+
+    # Fallback: Google Sheets
     spreadsheet_id = _get_spreadsheet_id()
     if not spreadsheet_id:
-        raise RuntimeError("Google Sheets no configurado. Añade spreadsheet_id en secrets.")
+        raise RuntimeError("No hay fuente de datos configurada. Añade spreadsheet_id o hubspot token en secrets.")
     return _from_sheets(spreadsheet_id)
+
+
+def _merge_investment_data(df_hubspot: pd.DataFrame, df_ads: pd.DataFrame) -> pd.DataFrame:
+    """Merge inversión de Ads APIs con datos de leads de HubSpot."""
+    if df_ads.empty:
+        return df_hubspot
+
+    # Agrupar inversión por campaña y semana
+    ads_grouped = df_ads.groupby(["ID_Campaña", "Semana"], as_index=False)["Inversión (€)"].sum()
+
+    # Merge
+    df = df_hubspot.merge(
+        ads_grouped[["ID_Campaña", "Semana", "Inversión (€)"]],
+        on=["ID_Campaña", "Semana"],
+        how="left",
+        suffixes=("_hs", "_ads"),
+    )
+
+    # Usar inversión de Ads si existe, sino la de HubSpot (que es 0)
+    if "Inversión (€)_ads" in df.columns:
+        df["Inversión (€)"] = df["Inversión (€)_ads"].fillna(df.get("Inversión (€)_hs", 0))
+        df = df.drop(columns=[c for c in df.columns if c.endswith("_ads") or c.endswith("_hs")])
+
+    # Recalcular CPL con inversión real
+    df["CPL (€)"] = np.where(
+        df["Leads Válidos"].fillna(0) > 0,
+        df["Inversión (€)"].fillna(0) / df["Leads Válidos"],
+        0,
+    )
+    # Recalcular Coste Entrevista
+    df["Coste Entrevista (€)"] = np.where(
+        df["Entrevistas"].fillna(0) > 0,
+        df["Inversión (€)"].fillna(0) / df["Entrevistas"],
+        0,
+    )
+
+    return df
 
 
 def _get_spreadsheet_id() -> str:

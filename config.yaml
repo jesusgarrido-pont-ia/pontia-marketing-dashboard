@@ -52,3 +52,32 @@ benchmarks:
   conv_lead_matricula:
     good: 5           # porcentaje
     bad: 2
+
+# ─────────────────────────────────────────────────────────────
+# HubSpot — Configuración de integración API
+# ─────────────────────────────────────────────────────────────
+# El access_token se configura en Streamlit Secrets (no aquí).
+# Solo se usan estos mapeos si HubSpot está habilitado.
+# ─────────────────────────────────────────────────────────────
+hubspot:
+  pipeline_id: "default"
+  stage_mapping:
+    exploración: "Exploración"
+    consideración: "Consideración"
+    decisión: "Decisión"
+  utm_source_mapping:
+    facebook: "Meta Ads (FB/IG)"
+    instagram: "Meta Ads (FB/IG)"
+    google: "Google Ads"
+    youtube: "YouTube Ads"
+    linkedin: "LinkedIn Ads"
+
+# ─────────────────────────────────────────────────────────────
+# Ads APIs — Mapeo de nombres de campaña
+# ─────────────────────────────────────────────────────────────
+# Si el nombre de la campaña en la plataforma de ads no coincide
+# con el ID_Campaña del dashboard, añadir aquí el mapeo.
+# Formato: nombre_en_plataforma: id_campana_dashboard
+# ─────────────────────────────────────────────────────────────
+ads:
+  campaign_name_mapping: {}

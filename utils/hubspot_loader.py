@@ -63,23 +63,29 @@ def _fetch_all_contacts(token: str, since_days: int = 180) -> list[dict]:
         "email", "createdate", "lifecyclestage", "hs_lead_status",
         "utm_campaign", "utm_source", "utm_medium",
     ]
-    url = f"{HUBSPOT_BASE}/crm/v3/objects/contacts"
+    # Usar Search API (POST) para filtrar por fecha
+    url = f"{HUBSPOT_BASE}/crm/v3/objects/contacts/search"
     since = datetime.utcnow() - timedelta(days=since_days)
-    since_ms = int(since.timestamp() * 1000)
+    since_ms = str(int(since.timestamp() * 1000))
 
     all_contacts = []
-    after = None
+    after = 0
 
     while True:
-        params = {
+        body = {
             "limit": 100,
-            "properties": ",".join(props),
-            "filterGroups": f'[{{"filters":[{{"propertyName":"createdate","operator":"GTE","value":"{since_ms}"}}]}}]',
+            "properties": props,
+            "filterGroups": [{
+                "filters": [{
+                    "propertyName": "createdate",
+                    "operator": "GTE",
+                    "value": since_ms,
+                }]
+            }],
+            "after": after,
         }
-        if after:
-            params["after"] = after
 
-        resp = requests.get(url, headers=_headers(token), params=params, timeout=30)
+        resp = requests.post(url, headers=_headers(token), json=body, timeout=15)
         resp.raise_for_status()
         data = resp.json()
 
@@ -97,9 +103,10 @@ def _fetch_all_contacts(token: str, since_days: int = 180) -> list[dict]:
             })
 
         paging = data.get("paging", {}).get("next", {})
-        after = paging.get("after")
-        if not after:
+        next_after = paging.get("after")
+        if not next_after:
             break
+        after = int(next_after)
         _rate_limit_pause()
 
     return all_contacts

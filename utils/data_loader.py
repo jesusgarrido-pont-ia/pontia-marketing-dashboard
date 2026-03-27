@@ -49,11 +49,17 @@ def _get_hubspot_token() -> str:
 def load_data() -> pd.DataFrame:
     """Devuelve el DataFrame de campañas limpio y enriquecido.
 
-    Fuente prioritaria: HubSpot API + Ads APIs (si configurados).
-    Fallback: Google Sheets.
+    Fuente principal: Google Sheets (estable y rápido).
+    HubSpot + Ads APIs se activan con data_source = "hubspot" en secrets.
     """
-    hubspot_token = _get_hubspot_token()
-    if hubspot_token:
+    # Verificar si el usuario ha activado explícitamente HubSpot como fuente
+    use_hubspot = False
+    try:
+        use_hubspot = st.secrets.get("data_source", "") == "hubspot"
+    except Exception:
+        pass
+
+    if use_hubspot and _get_hubspot_token():
         try:
             from utils.hubspot_loader import load_hubspot_data
             from utils.ads_loader import load_all_ads_spend
@@ -68,10 +74,10 @@ def load_data() -> pd.DataFrame:
         except Exception as e:
             st.warning(f"⚠️ Error cargando desde HubSpot, usando Google Sheets: {e}")
 
-    # Fallback: Google Sheets
+    # Fuente principal: Google Sheets
     spreadsheet_id = _get_spreadsheet_id()
     if not spreadsheet_id:
-        raise RuntimeError("No hay fuente de datos configurada. Añade spreadsheet_id o hubspot token en secrets.")
+        raise RuntimeError("No hay fuente de datos configurada. Añade spreadsheet_id en secrets.")
     return _from_sheets(spreadsheet_id)
 
 

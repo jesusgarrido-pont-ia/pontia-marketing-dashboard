@@ -58,12 +58,13 @@ def _rate_limit_pause():
 # ── Fetch de contactos ────────────────────────────────────────────────────────
 
 def _fetch_all_contacts(token: str, since_days: int = 180) -> list[dict]:
-    """Pagina todos los contactos creados en los últimos since_days días."""
+    """Pagina contactos con utm_campaign relleno (solo leads de campañas)."""
     props = [
         "email", "createdate", "lifecyclestage", "hs_lead_status",
         "utm_campaign", "utm_source", "utm_medium",
     ]
-    # Usar Search API (POST) para filtrar por fecha
+    # Usar Search API (POST) — filtrar solo contactos CON utm_campaign
+    # Esto reduce 30.000 contactos a solo los que vienen de campañas (~1.000-2.000)
     url = f"{HUBSPOT_BASE}/crm/v3/objects/contacts/search"
     since = datetime.utcnow() - timedelta(days=since_days)
     since_ms = str(int(since.timestamp() * 1000))
@@ -73,14 +74,20 @@ def _fetch_all_contacts(token: str, since_days: int = 180) -> list[dict]:
 
     while True:
         body = {
-            "limit": 100,
+            "limit": 200,
             "properties": props,
             "filterGroups": [{
-                "filters": [{
-                    "propertyName": "createdate",
-                    "operator": "GTE",
-                    "value": since_ms,
-                }]
+                "filters": [
+                    {
+                        "propertyName": "createdate",
+                        "operator": "GTE",
+                        "value": since_ms,
+                    },
+                    {
+                        "propertyName": "utm_campaign",
+                        "operator": "HAS_PROPERTY",
+                    },
+                ]
             }],
             "after": after,
         }

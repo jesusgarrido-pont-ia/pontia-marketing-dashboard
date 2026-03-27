@@ -55,19 +55,25 @@ def load_data() -> pd.DataFrame:
     """
     hubspot_token = _get_hubspot_token()
     if hubspot_token:
-        from utils.hubspot_loader import load_hubspot_data
-        from utils.ads_loader import load_all_ads_spend
+        try:
+            from utils.hubspot_loader import load_hubspot_data
+            from utils.ads_loader import load_all_ads_spend
 
-        df_hs = load_hubspot_data()
-        if not df_hs.empty:
-            # Merge con datos de inversión de Ads APIs
-            try:
-                df_ads = load_all_ads_spend()
-                if not df_ads.empty:
-                    df_hs = _merge_investment_data(df_hs, df_ads)
-            except Exception:
-                pass  # Ads APIs opcionales
-            return _process(df_hs)
+            df_hs = load_hubspot_data()
+            if not df_hs.empty:
+                # Merge con datos de inversión de Ads APIs
+                try:
+                    df_ads = load_all_ads_spend()
+                    if not df_ads.empty:
+                        df_hs = _merge_investment_data(df_hs, df_ads)
+                except Exception:
+                    pass  # Ads APIs opcionales
+                return _process(df_hs)
+            # HubSpot devolvió datos vacíos — caer a Google Sheets
+            st.info("📡 HubSpot no devolvió datos (¿no hay contactos con utm_campaign?). Usando Google Sheets.")
+        except Exception as e:
+            st.error(f"❌ Error HubSpot: {e}")
+            st.info("Usando Google Sheets como respaldo...")
 
     # Google Sheets
     spreadsheet_id = _get_spreadsheet_id()

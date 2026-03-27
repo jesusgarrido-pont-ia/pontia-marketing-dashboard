@@ -19,6 +19,7 @@ import yaml
 from plotly.subplots import make_subplots
 
 from utils.data_loader import apply_filters, get_filter_options, load_data, load_campaign_status
+from utils.health_score import compute_health_score, detect_alerts, ACTION_STYLES
 
 # ── AI module (optional) ────────────────────────────────────────────────────
 try:
@@ -1026,6 +1027,263 @@ def panel_decisiones(df: pd.DataFrame, benchmarks=None):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PANEL DE DECISIONES (nueva pestaña principal)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _sparkline_svg(values: list, width: int = 80, height: int = 20) -> str:
+    """Genera un SVG inline con una sparkline de los valores dados."""
+    if not values or len(values) < 2:
+        return ""
+    # Color: verde si tendencia baja (CPL mejorando), rojo si sube
+    color = "#16A34A" if values[-1] <= values[0] else "#DC2626"
+    # Normalizar valores al espacio SVG
+    v_min, v_max = min(values), max(values)
+    v_range = v_max - v_min if v_max != v_min else 1
+    padding = 2
+    points = []
+    for i, v in enumerate(values):
+        x = padding + i * (width - 2 * padding) / (len(values) - 1)
+        y = padding + (1 - (v - v_min) / v_range) * (height - 2 * padding)
+        points.append(f"{x:.1f},{y:.1f}")
+    pts_str = " ".join(points)
+    return (
+        f'<svg width="{width}" height="{height}" style="vertical-align:middle">'
+        f'<polyline points="{pts_str}" fill="none" stroke="{color}" stroke-width="2" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="{points[-1].split(",")[0]}" cy="{points[-1].split(",")[1]}" '
+        f'r="2.5" fill="{color}"/>'
+        f'</svg>'
+    )
+
+
+def _health_bar_svg(score: float, width: int = 60, height: int = 10) -> str:
+    """Barra de progreso SVG para el Health Score."""
+    if score > 70:
+        color = "#16A34A"
+    elif score >= 40:
+        color = "#F59E0B"
+    elif score >= 25:
+        color = "#EE7015"
+    else:
+        color = "#DC2626"
+    fill_w = max(1, score / 100 * width)
+    return (
+        f'<svg width="{width}" height="{height}" style="vertical-align:middle">'
+        f'<rect x="0" y="0" width="{width}" height="{height}" rx="3" fill="#E5E7EB"/>'
+        f'<rect x="0" y="0" width="{fill_w:.1f}" height="{height}" rx="3" fill="{color}"/>'
+        f'</svg>'
+    )
+
+
+def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: dict):
+    """Pestaña principal: Panel de Decisiones inteligente."""
+
+    # Determinar semana actual
+    semanas = sorted(df_all["Semana"].unique())
+    current_week = semanas[-1] if semanas else 0
+
+    # Calcular Health Score
+    health_df = compute_health_score(df_all, current_week, benchmarks)
+    if health_df.empty:
+        st.info("No hay campañas de pago para analizar.")
+        return
+
+    # Filtrar por campañas presentes en df_filtered (respeta filtros de sidebar)
+    filtered_camps = df_filtered["ID_Campaña"].unique()
+    health_df = health_df[health_df["ID_Campaña"].isin(filtered_camps)]
+    if health_df.empty:
+        st.info("No hay campañas de pago en el filtro seleccionado.")
+        return
+
+    # ── Sección A: Resumen de acciones ────────────────────────────────────
+    section("PANEL DE DECISIONES INTELIGENTE")
+
+    n_escalar = len(health_df[health_df["Action"] == "ESCALAR"])
+    n_mantener = len(health_df[health_df["Action"] == "MANTENER"])
+    n_optimizar = len(health_df[health_df["Action"] == "OPTIMIZAR"])
+    n_pausar = len(health_df[health_df["Action"] == "PAUSAR"])
+    n_nueva = len(health_df[health_df["Action"] == "NUEVA"])
+
+    st.markdown(
+        f"""
+        <div style="background:#FFFFFF;border:1px solid #E5E7EB;border-radius:14px;
+        padding:1.1rem 1.3rem;margin-bottom:1.2rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem">
+            <span style="font-size:1.2rem">🎯</span>
+            <span style="font-family:Manrope,sans-serif;font-size:1rem;font-weight:800;color:#0A0909">
+              Resumen de acciones — S{current_week}
+            </span>
+            <span style="font-size:.72rem;color:#808080;margin-left:auto">{len(health_df)} campañas de pago</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem">
+            <div style="background:rgba(22,163,74,.06);border:1px solid rgba(22,163,74,.2);
+            border-radius:10px;padding:.6rem;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:#16A34A">{n_escalar}</div>
+              <div style="font-size:.65rem;font-weight:700;color:#166534;letter-spacing:.08em">🟢 ESCALAR</div>
+            </div>
+            <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);
+            border-radius:10px;padding:.6rem;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:#F59E0B">{n_mantener}</div>
+              <div style="font-size:.65rem;font-weight:700;color:#92400E;letter-spacing:.08em">🟡 MANTENER</div>
+            </div>
+            <div style="background:rgba(238,112,21,.06);border:1px solid rgba(238,112,21,.2);
+            border-radius:10px;padding:.6rem;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:#EE7015">{n_optimizar}</div>
+              <div style="font-size:.65rem;font-weight:700;color:#9A3412;letter-spacing:.08em">🟠 OPTIMIZAR</div>
+            </div>
+            <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);
+            border-radius:10px;padding:.6rem;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:#DC2626">{n_pausar}</div>
+              <div style="font-size:.65rem;font-weight:700;color:#991B1B;letter-spacing:.08em">🔴 PAUSAR</div>
+            </div>
+            <div style="background:rgba(86,131,210,.06);border:1px solid rgba(86,131,210,.2);
+            border-radius:10px;padding:.6rem;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:#5683D2">{n_nueva}</div>
+              <div style="font-size:.65rem;font-weight:700;color:#1E3A8A;letter-spacing:.08em">🆕 NUEVA</div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Sección B: Alertas semanales ──────────────────────────────────────
+    alerts = detect_alerts(df_all, current_week)
+    if alerts:
+        section("ALERTAS SEMANALES")
+        for a in alerts[:8]:  # máximo 8 alertas
+            kind = "d" if a["type"] == "danger" else "w"
+            alert(a["message"], kind)
+        st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
+
+    # ── Sección C: Tabla de Salud de Campañas ─────────────────────────────
+    section("TABLA DE SALUD DE CAMPAÑAS")
+    st.markdown(
+        '<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
+        'Score basado en: tendencia CPL (30%), calidad de leads (25%), coste/entrevista (25%), volumen (20%)'
+        '</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Construir tabla HTML
+    table_rows = []
+    for _, row in health_df.iterrows():
+        style = ACTION_STYLES.get(row["Action"], ACTION_STYLES["MANTENER"])
+
+        sparkline = _sparkline_svg(row["CPL_trend"])
+        health_bar = _health_bar_svg(row["Health_Score"])
+
+        cpl_str = f'{row["CPL_actual"]:.1f}€' if row["CPL_actual"] is not None else "—"
+        ce_str = f'{row["Coste_Entrevista"]:.0f}€' if row["Coste_Entrevista"] is not None else "—"
+        ai_str = f'{row["PCT_Alta_Intencion"]:.0f}%'
+        tc_str = f'{row["Tasa_Cualificacion"]:.0f}%'
+        weeks_badge = f' <span style="font-size:.55rem;background:#E5E7EB;padding:1px 4px;border-radius:3px">{row["Weeks_Data"]}sem</span>' if row["Action"] == "NUEVA" else ""
+
+        table_rows.append(
+            f'<tr style="border-left:4px solid {style["border"]};background:{style["bg"]}">'
+            f'<td style="font-weight:700;font-size:.78rem;color:{style["text"]}">{row["ID_Campaña"]}{weeks_badge}</td>'
+            f'<td style="font-size:.72rem;color:#4C4C4C">{row["Programa"][:25]}</td>'
+            f'<td style="font-family:IBM Plex Mono,monospace;font-size:.78rem;font-weight:600">{cpl_str}</td>'
+            f'<td>{sparkline}</td>'
+            f'<td style="font-family:IBM Plex Mono,monospace;font-size:.78rem">{ai_str}</td>'
+            f'<td style="font-family:IBM Plex Mono,monospace;font-size:.78rem">{ce_str}</td>'
+            f'<td style="font-family:IBM Plex Mono,monospace;font-size:.78rem">{tc_str}</td>'
+            f'<td style="font-family:IBM Plex Mono,monospace;font-size:.78rem;font-weight:600">{row["Leads_actual"]}</td>'
+            f'<td>{health_bar} <span style="font-size:.7rem;font-weight:700">{row["Health_Score"]:.0f}</span></td>'
+            f'<td style="font-weight:800;font-size:.75rem;color:{style["color"]}">{style["icon"]} {row["Action"]}</td>'
+            f'</tr>'
+        )
+
+    table_html = f"""
+    <div style="overflow-x:auto;border:1px solid #E5E7EB;border-radius:10px;background:#FFFFFF">
+    <table style="width:100%;border-collapse:collapse;font-family:Manrope,sans-serif;font-size:.8rem">
+    <thead>
+      <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CAMPAÑA</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">PROGRAMA</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CPL</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">TENDENCIA</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">% INTENCIÓN</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">€/ENTREV.</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CUALIF.</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">LEADS</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">SCORE</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">ACCIÓN</th>
+      </tr>
+    </thead>
+    <tbody>
+    {"".join(table_rows)}
+    </tbody>
+    </table>
+    </div>
+    """
+    st.markdown(table_html, unsafe_allow_html=True)
+
+    # ── Sección D: Cobertura por Programa ─────────────────────────────────
+    st.markdown("<div style='margin-top:1.5rem'></div>", unsafe_allow_html=True)
+    section("COBERTURA POR PROGRAMA")
+
+    prog_summary = (
+        health_df.groupby("Programa")
+        .apply(lambda g: pd.Series({
+            "total": len(g),
+            "sanas": len(g[g["Action"].isin(["ESCALAR", "MANTENER"])]),
+            "atencion": len(g[g["Action"].isin(["OPTIMIZAR", "PAUSAR"])]),
+            "nuevas": len(g[g["Action"] == "NUEVA"]),
+        }))
+        .reset_index()
+    )
+
+    cols_prog = st.columns(min(len(prog_summary), 4))
+    for i, (_, ps) in enumerate(prog_summary.iterrows()):
+        with cols_prog[i % len(cols_prog)]:
+            if ps["sanas"] == 0 and ps["atencion"] > 0:
+                border_color = "#DC2626"
+                bg_color = "rgba(239,68,68,.06)"
+                status_icon = "🚨"
+            elif ps["atencion"] > ps["sanas"]:
+                border_color = "#EE7015"
+                bg_color = "rgba(238,112,21,.06)"
+                status_icon = "⚠️"
+            else:
+                border_color = "#16A34A"
+                bg_color = "rgba(22,163,74,.06)"
+                status_icon = "✅"
+
+            nueva_txt = f' · {ps["nuevas"]} nuevas' if ps["nuevas"] > 0 else ""
+            st.markdown(
+                f'<div style="background:{bg_color};border:1px solid {border_color};'
+                f'border-radius:10px;padding:.7rem;margin-bottom:.5rem">'
+                f'<div style="font-weight:700;font-size:.8rem;color:#0A0909">{status_icon} {ps["Programa"][:30]}</div>'
+                f'<div style="font-size:.72rem;color:#4C4C4C;margin-top:.2rem">'
+                f'{ps["total"]} campañas · <span style="color:#16A34A">{ps["sanas"]} sanas</span>'
+                f' · <span style="color:#DC2626">{ps["atencion"]} atención</span>{nueva_txt}'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+
+    # ── Sección E: ROAS — Visión largo plazo ──────────────────────────────
+    st.markdown("<div style='margin-top:1.5rem'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;'
+        'padding:.8rem 1rem;margin-bottom:.8rem">'
+        '<div style="font-family:Manrope,sans-serif;font-size:.85rem;font-weight:700;color:#4C4C4C">'
+        '⏳ ROAS — Visión a largo plazo</div>'
+        '<div style="font-size:.72rem;color:#808080;margin-top:.2rem">'
+        'El ROAS tarda ~18 días en reflejarse. No usar para decisiones semanales — revisar mensualmente.'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    # Reutilizar gráfico ROAS existente con datos filtrados
+    df_pago = df_filtered[~df_filtered["Canal"].str.contains("orgánico|seo|organic", case=False, na=False)]
+    if not df_pago.empty:
+        fig = chart_roas_campanas(df_pago, benchmarks)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════════════════════
 def _get_previous_period_data(df: pd.DataFrame, df_all: pd.DataFrame) -> pd.DataFrame:
@@ -1910,7 +2168,8 @@ def main():
     benchmarks = _load_benchmarks()
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    t1, t2, t3, t4, t5, t6 = st.tabs([
+    t0, t1, t2, t3, t4, t5, t6 = st.tabs([
+        "🎯 Panel de Decisiones",
         "📊 Resumen General",
         "🎯 Por Campaña",
         "📈 Evolución Histórica",
@@ -1919,6 +2178,8 @@ def main():
         "📖 Guía de Uso",
     ])
 
+    with t0:
+        tab_decisiones(df_filtered, df_all, benchmarks)
     with t1:
         tab_resumen(df_filtered, df_all, benchmarks)
     with t2:

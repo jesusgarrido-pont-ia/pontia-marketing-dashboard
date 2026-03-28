@@ -1220,13 +1220,13 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
         <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CAMPAÑA</th>
         <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">PROGRAMA</th>
         <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CPL</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">TENDENCIA</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">% INTENCIÓN</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">TENDENCIA <span title="Evolución del CPL en las últimas 4 semanas. Línea descendente = mejorando." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">% INTENCIÓN <span title="Porcentaje de leads en etapas Consideración + Decisión sobre el total de leads válidos." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
         <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">€/ENTREV.</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CUALIF.</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CUALIF. <span title="Tasa de cualificación: % de leads válidos que llegan a entrevista." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
         <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">LEADS</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">SCORE</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">ACCIÓN</th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">SCORE <span title="Health Score (0-100): media ponderada de tendencia CPL (30%), calidad de leads (25%), coste/entrevista (25%) y volumen (20%)." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
+        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">ACCIÓN <span title="Escalar (score &gt;70), Mantener (40-70), Optimizar (25-40), Pausar (&lt;25), Nueva (&lt;4 semanas de datos)." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
       </tr>
     </thead>
     <tbody>

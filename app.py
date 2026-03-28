@@ -1232,7 +1232,7 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
     .ht-box {{visibility:hidden;opacity:0;position:absolute;z-index:999;
       top:calc(100% + 8px);left:50%;transform:translateX(-50%);
       width:220px;padding:8px 10px;border-radius:8px;
-      background:#1a1a1a;color:#fff;font-size:11px;font-weight:400;
+      background:#1a1a1a !important;color:#ffffff !important;font-size:11px !important;font-weight:400 !important;
       line-height:1.4;letter-spacing:normal;text-transform:none;
       box-shadow:0 4px 12px rgba(0,0,0,.25);
       transition:opacity .15s ease,visibility .15s ease;pointer-events:none}}

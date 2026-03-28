@@ -498,25 +498,23 @@ def show_login_page():
                 unsafe_allow_html=True,
             )
 
-            if st.button("🔐 Iniciar sesión con Google", use_container_width=True):
-                state = secrets.token_urlsafe(32)
-                st.session_state["_oauth_state"] = state
-                redirect_uri = _get_redirect_uri()
-                auth_url = f"{_GOOGLE_AUTH_URL}?" + urlencode({
-                    "client_id": oauth_cfg["client_id"],
-                    "redirect_uri": redirect_uri,
-                    "response_type": "code",
-                    "scope": "openid email profile",
-                    "access_type": "offline",
-                    "state": state,
-                    "hd": _ALLOWED_DOMAIN,
-                    "prompt": "select_account",
-                })
-                st.markdown(
-                    f'<meta http-equiv="refresh" content="0;url={auth_url}">',
-                    unsafe_allow_html=True,
-                )
-                st.stop()
+            # Generar state para CSRF protection
+            if "_oauth_state" not in st.session_state:
+                st.session_state["_oauth_state"] = secrets.token_urlsafe(32)
+            state = st.session_state["_oauth_state"]
+            redirect_uri = _get_redirect_uri()
+            auth_url = f"{_GOOGLE_AUTH_URL}?" + urlencode({
+                "client_id": oauth_cfg["client_id"],
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "scope": "openid email profile",
+                "access_type": "offline",
+                "state": state,
+                "hd": _ALLOWED_DOMAIN,
+                "prompt": "select_account",
+            })
+
+            st.link_button("🔐 Iniciar sesión con Google", auth_url, use_container_width=True)
 
             st.markdown(
                 f'<p style="font-size:.7rem;color:#A0A0A0;text-align:center;margin-top:1rem">'

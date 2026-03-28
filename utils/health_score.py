@@ -281,3 +281,55 @@ def detect_alerts(
     # Ordenar: danger primero, luego warning
     alerts.sort(key=lambda a: 0 if a["type"] == "danger" else 1)
     return alerts
+
+
+def detect_decline_alerts(
+    df_all: pd.DataFrame,
+    current_week: int,
+    benchmarks: dict,
+    health_df: pd.DataFrame,
+) -> list[dict]:
+    """Detecta campañas veteranas (5+ semanas) que iban bien y ahora declinan.
+
+    Compara el health score actual con el de hace 3 semanas.
+    Alerta si pasó de >60 a <45.
+    """
+    if health_df.empty:
+        return []
+
+    all_weeks = sorted(df_all["Semana"].unique())
+    if current_week not in all_weeks:
+        return []
+    idx = all_weeks.index(current_week)
+    if idx < 3:
+        return []
+
+    past_week = all_weeks[idx - 3]
+    past_health = compute_health_score(df_all, past_week, benchmarks)
+    if past_health.empty:
+        return []
+
+    # Solo campañas veteranas (5+ semanas de datos)
+    veteran = health_df[health_df["Weeks_Data"] >= 5]
+    if veteran.empty:
+        return []
+
+    alerts = []
+    for _, row in veteran.iterrows():
+        camp = row["ID_Campaña"]
+        current_score = row["Health_Score"]
+        past_row = past_health[past_health["ID_Campaña"] == camp]
+        if past_row.empty:
+            continue
+        past_score = past_row.iloc[0]["Health_Score"]
+        if past_score > 60 and current_score < 45:
+            alerts.append({
+                "type": "warning",
+                "message": (
+                    f"📉 **{camp}**: Lleva {row['Weeks_Data']} semanas activa. "
+                    f"Health score cayó de {past_score:.0f} → {current_score:.0f}. Revisar tendencia."
+                ),
+                "campaign": camp,
+            })
+
+    return alerts

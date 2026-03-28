@@ -19,7 +19,7 @@ import yaml
 from plotly.subplots import make_subplots
 
 from utils.data_loader import apply_filters, get_filter_options, load_data, load_campaign_status
-from utils.health_score import compute_health_score, detect_alerts, ACTION_STYLES
+from utils.health_score import compute_health_score, detect_alerts, detect_decline_alerts, ACTION_STYLES
 
 # ── AI module (optional) ────────────────────────────────────────────────────
 try:
@@ -1083,14 +1083,14 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
     current_week = semanas[-1] if semanas else 0
 
     # Calcular Health Score
-    health_df = compute_health_score(df_all, current_week, benchmarks)
-    if health_df.empty:
+    health_df_all = compute_health_score(df_all, current_week, benchmarks)
+    if health_df_all.empty:
         st.info("No hay campañas de pago para analizar.")
         return
 
     # Filtrar por campañas presentes en df_filtered (respeta filtros de sidebar)
     filtered_camps = df_filtered["ID_Campaña"].unique()
-    health_df = health_df[health_df["ID_Campaña"].isin(filtered_camps)]
+    health_df = health_df_all[health_df_all["ID_Campaña"].isin(filtered_camps)]
     if health_df.empty:
         st.info("No hay campañas de pago en el filtro seleccionado.")
         return
@@ -1149,14 +1149,16 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
 
     # ── Sección B: Alertas semanales ──────────────────────────────────────
     alerts = detect_alerts(df_all, current_week)
-    if alerts:
+    decline_alerts = detect_decline_alerts(df_all, current_week, benchmarks, health_df_all)
+    all_alerts = alerts + decline_alerts
+    if all_alerts:
         section("ALERTAS SEMANALES")
         st.markdown(
             f'<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
             f'Cambios S{current_week} vs S{current_week - 1} (esta semana vs semana anterior)</p>',
             unsafe_allow_html=True,
         )
-        for a in alerts[:8]:  # máximo 8 alertas
+        for a in all_alerts[:10]:  # máximo 10 alertas
             kind = "d" if a["type"] == "danger" else "w"
             alert(a["message"], kind)
         st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)

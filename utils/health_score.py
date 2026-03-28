@@ -333,3 +333,95 @@ def detect_decline_alerts(
             })
 
     return alerts
+
+
+# Mapeo columna del Sheet → etiqueta legible + diagnóstico
+_LOSS_REASONS = {
+    "No válido": {
+        "label": "No válido",
+        "diagnostic": "Datos de contacto erróneos o leads basura. Revisar segmentación y fuentes.",
+    },
+    "No es lo que buscaba": {
+        "label": "No es lo que buscaba",
+        "diagnostic": "La campaña atrae público fuera del buyer persona. Revisar audiencia y mensaje.",
+    },
+    "No tiene dinero": {
+        "label": "Precio",
+        "diagnostic": "El público no puede asumir el coste. Revisar targeting socioeconómico.",
+    },
+    "Matriculado en otra escuela": {
+        "label": "Competencia",
+        "diagnostic": "Leads que se van a competidores. Revisar propuesta de valor y timing.",
+    },
+    "Ilocalizado": {
+        "label": "Ilocalizable",
+        "diagnostic": "No se consigue contactar. Revisar calidad del formulario y canales de contacto.",
+    },
+}
+
+
+def detect_loss_pattern_alerts(
+    df_all: pd.DataFrame,
+    current_week: int,
+) -> list[dict]:
+    """Detecta campañas con motivos de pérdida anormalmente altos vs la media.
+
+    Compara el % de cada motivo de pérdida por campaña con la media global.
+    Alerta si una campaña supera la media en más de 15 puntos porcentuales.
+    """
+    df = df_all[~df_all["Canal"].str.contains("orgánico|seo|organic", case=False, na=False)].copy()
+    if df.empty:
+        return []
+
+    # Solo semana actual
+    df_curr = df[df["Semana"] == current_week]
+    if df_curr.empty:
+        df_curr = df
+
+    # Columnas de motivos disponibles
+    available = [col for col in _LOSS_REASONS if col in df_curr.columns]
+    if not available:
+        return []
+
+    # Agregar por campaña
+    agg_cols = {"Perdidos": ("Perdidos", "sum")} if "Perdidos" in df_curr.columns else {}
+    for col in available:
+        agg_cols[col] = (col, "sum")
+
+    by_camp = df_curr.groupby("ID_Campaña").agg(**agg_cols).reset_index()
+    if "Perdidos" not in by_camp.columns:
+        by_camp["Perdidos"] = sum(by_camp[col] for col in available)
+    by_camp = by_camp[by_camp["Perdidos"] > 0]
+    if by_camp.empty:
+        return []
+
+    # Calcular % por motivo
+    for col in available:
+        by_camp[f"pct_{col}"] = by_camp[col] / by_camp["Perdidos"] * 100
+
+    # Media global de cada motivo
+    total_perdidos = by_camp["Perdidos"].sum()
+    medias = {}
+    for col in available:
+        medias[col] = by_camp[col].sum() / total_perdidos * 100 if total_perdidos > 0 else 0
+
+    alerts = []
+    for _, row in by_camp.iterrows():
+        if row["Perdidos"] < 3:  # ignorar campañas con muy pocos perdidos
+            continue
+        for col in available:
+            pct = row[f"pct_{col}"]
+            media = medias[col]
+            diff = pct - media
+            if diff > 15 and pct > 20:  # >15pp por encima de la media Y >20% absoluto
+                info = _LOSS_REASONS[col]
+                alerts.append({
+                    "type": "info",
+                    "message": (
+                        f"🔍 **{row['ID_Campaña']}**: {info['label']} = {pct:.0f}% "
+                        f"(media: {media:.0f}%). {info['diagnostic']}"
+                    ),
+                    "campaign": row["ID_Campaña"],
+                })
+
+    return alerts

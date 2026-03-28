@@ -19,7 +19,7 @@ import yaml
 from plotly.subplots import make_subplots
 
 from utils.data_loader import apply_filters, get_filter_options, load_data, load_campaign_status
-from utils.health_score import compute_health_score, detect_alerts, detect_decline_alerts, ACTION_STYLES
+from utils.health_score import compute_health_score, detect_alerts, detect_decline_alerts, detect_loss_pattern_alerts, ACTION_STYLES
 
 # ── AI module (optional) ────────────────────────────────────────────────────
 try:
@@ -1244,6 +1244,18 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
         )
         for a in decline_alerts[:5]:
             alert(a["message"], "w")
+        st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
+
+    loss_alerts = detect_loss_pattern_alerts(df_all, current_week)
+    if loss_alerts:
+        section("PATRONES DE PÉRDIDA")
+        st.markdown(
+            '<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
+            'Campañas con motivos de cierre por encima de la media. Útil para ajustar audiencias y mensajes.</p>',
+            unsafe_allow_html=True,
+        )
+        for a in loss_alerts[:6]:
+            alert(a["message"], "i")
         st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
 
     # ── Sección C: Tabla de Salud de Campañas ─────────────────────────────

@@ -200,7 +200,7 @@ a{color:#EE7015}
 .stTabs [aria-selected="true"]{background:#EE7015!important;color:#FFFFFF!important;font-weight:700}
 .stTabs [data-baseweb="tab-highlight"],.stTabs [data-baseweb="tab-border"]{display:none}
 
-/* ── KPI Cards ────────────────────────────── */
+/* ── KPI Cards (legacy) ───────────────────── */
 .kpi-card{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:14px;padding:1.1rem .9rem;text-align:center;transition:all .25s;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,#EE7015,#F59E0B)}
 .kpi-card:hover{border-color:#EE7015;transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.08)}
@@ -213,6 +213,18 @@ a{color:#EE7015}
 .bg{background:rgba(22,163,74,.1);color:#16A34A;border:1px solid rgba(22,163,74,.25)}
 .by{background:rgba(245,158,11,.1);color:#D97706;border:1px solid rgba(245,158,11,.25)}
 .br{background:rgba(239,68,68,.1);color:#EF4444;border:1px solid rgba(239,68,68,.25)}
+
+/* ── KPI Bar (compact summary) ───────────── */
+.kpi-bar{display:grid;grid-template-columns:repeat(8,1fr);background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi-bar-item{padding:.7rem .5rem;text-align:center;border-right:1px solid #E5E7EB;position:relative}
+.kpi-bar-item:last-child{border-right:none}
+.kpi-bar-item::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,#EE7015,#F59E0B)}
+.kpi-bar-label{font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#808080;margin-bottom:.3rem}
+.kpi-bar-value{font-family:'IBM Plex Mono',monospace;font-size:1.05rem;font-weight:700;color:#0A0909;line-height:1.2}
+.kpi-bar-delta{font-size:.65rem;font-weight:700;margin-top:.2rem}
+.kpi-bar-delta.up{color:#16A34A}
+.kpi-bar-delta.down{color:#DC2626}
+@media(max-width:768px){.kpi-bar{grid-template-columns:repeat(4,1fr)}.kpi-bar-item:nth-child(4){border-right:none}}
 
 /* ── Section title ────────────────────────── */
 .sec{font-size:.8rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#EE7015;border-left:3px solid #EE7015;padding-left:.7rem;margin:1.2rem 0 .6rem}
@@ -474,6 +486,36 @@ def kpi_grid(cards_html: list):
         for j, html in enumerate(row):
             with cols[j]:
                 st.markdown(html, unsafe_allow_html=True)
+
+
+def kpi_bar(items: list[dict]):
+    """Render a compact KPI summary bar.
+
+    items: list of dicts with keys: label, value, delta (optional), invert (optional).
+    invert=True means a positive delta is bad (e.g. CPL going up).
+    """
+    cells = []
+    for item in items:
+        delta_html = ""
+        if item.get("delta"):
+            d = item["delta"]
+            is_positive = not str(d).startswith("-")
+            if item.get("invert"):
+                css_class = "down" if is_positive else "up"
+            else:
+                css_class = "up" if is_positive else "down"
+            delta_html = f'<div class="kpi-bar-delta {css_class}">{d}</div>'
+        cells.append(
+            f'<div class="kpi-bar-item">'
+            f'<div class="kpi-bar-label">{item["label"]}</div>'
+            f'<div class="kpi-bar-value">{item["value"]}</div>'
+            f'{delta_html}'
+            f'</div>'
+        )
+    st.markdown(
+        f'<div class="kpi-bar">{"".join(cells)}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def section(title):
@@ -1148,29 +1190,16 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
         }
 
     section("KPIs GLOBALES")
-    cards = []
-    cards.append(kpi_card("💰", "Inversión Total", fmt_eur(inv), "acumulado",
-                          delta=deltas.get("inv"), return_html=True))
-    cards.append(kpi_card("📥", "Leads Válidos", fmt_num(leads), "total",
-                          _color_badge(leads, b_leads["good"], b_leads["bad"]),
-                          "", delta=deltas.get("leads"), return_html=True))
-    badge = _color_badge(cpl, b_cpl["good"], b_cpl["review"], invert=True) if cpl else ""
-    cards.append(kpi_card("💡", "CPL Medio", fmt_eur(cpl, 2), "coste por lead", badge,
-                          "", delta=deltas.get("cpl"), return_html=True))
-    cards.append(kpi_card("🤝", "Entrevistas", fmt_num(entrevistas), "total",
-                          delta=deltas.get("entrevistas"), return_html=True))
-    badge = _color_badge(coste_ent, b_ce["good"], b_ce["bad"], invert=True) if coste_ent else ""
-    cards.append(kpi_card("💼", "Coste/Entrevista", fmt_eur(coste_ent, 1) if coste_ent else "—", "€ por entrevista",
-                          badge, "", delta=deltas.get("coste_ent"), return_html=True))
-    cards.append(kpi_card("🎓", "Matriculados", fmt_num(matriculados), "total",
-                          _color_badge(matriculados, b_mat["good"], b_mat["bad"]), "",
-                          delta=deltas.get("matriculados"), return_html=True))
-    cards.append(kpi_card("💵", "Ingresos", fmt_eur(ingresos), "acumulado",
-                          delta=deltas.get("ingresos"), return_html=True))
-    badge = _color_badge(roas, 3, b_roas["bad"]) if roas else ""
-    cards.append(kpi_card("📈", "ROAS Global", f"{roas:.2f}x" if roas else "—", "retorno inversión",
-                          badge, "", delta=deltas.get("roas"), return_html=True))
-    kpi_grid(cards)
+    kpi_bar([
+        {"label": "Inversión", "value": fmt_eur(inv), "delta": deltas.get("inv")},
+        {"label": "Leads", "value": fmt_num(leads), "delta": deltas.get("leads")},
+        {"label": "CPL", "value": fmt_eur(cpl, 2), "delta": deltas.get("cpl"), "invert": True},
+        {"label": "Entrevistas", "value": fmt_num(entrevistas), "delta": deltas.get("entrevistas")},
+        {"label": "€/Entrev.", "value": fmt_eur(coste_ent, 1) if coste_ent else "—", "delta": deltas.get("coste_ent"), "invert": True},
+        {"label": "Matrículas", "value": fmt_num(matriculados), "delta": deltas.get("matriculados")},
+        {"label": "Ingresos", "value": fmt_eur(ingresos), "delta": deltas.get("ingresos")},
+        {"label": "ROAS", "value": f"{roas:.2f}x" if roas else "—", "delta": deltas.get("roas")},
+    ])
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 

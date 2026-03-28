@@ -1230,17 +1230,17 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
       font-size:9px;font-weight:700;font-style:italic;cursor:pointer;
       font-family:Georgia,serif;line-height:1}}
     .ht-box {{visibility:hidden;opacity:0;position:absolute;z-index:999;
-      bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+      top:calc(100% + 8px);left:50%;transform:translateX(-50%);
       width:220px;padding:8px 10px;border-radius:8px;
       background:#1a1a1a;color:#fff;font-size:11px;font-weight:400;
       line-height:1.4;letter-spacing:normal;text-transform:none;
       box-shadow:0 4px 12px rgba(0,0,0,.25);
       transition:opacity .15s ease,visibility .15s ease;pointer-events:none}}
-    .ht-box::after {{content:'';position:absolute;top:100%;left:50%;
-      transform:translateX(-50%);border:5px solid transparent;border-top-color:#1a1a1a}}
+    .ht-box::after {{content:'';position:absolute;bottom:100%;left:50%;
+      transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#1a1a1a}}
     .ht-wrap:hover .ht-box {{visibility:visible;opacity:1}}
     </style>
-    <div style="overflow-x:auto;border:1px solid #E5E7EB;border-radius:10px;background:#FFFFFF">
+    <div style="overflow-x:auto;overflow-y:visible;border:1px solid #E5E7EB;border-radius:10px;background:#FFFFFF;position:relative">
     <table style="width:100%;border-collapse:collapse;font-family:Manrope,sans-serif;font-size:.8rem">
     <thead>
       <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">

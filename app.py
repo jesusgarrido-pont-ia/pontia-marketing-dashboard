@@ -1212,21 +1212,48 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
             f'</tr>'
         )
 
+    # Helper para tooltip CSS puro (funciona en Streamlit)
+    def _tip(label, text):
+        return (
+            f'{label} <span class="ht-wrap">'
+            f'<span class="ht-icon">i</span>'
+            f'<span class="ht-box">{text}</span></span>'
+        )
+
+    _th = 'padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em'
+
     table_html = f"""
+    <style>
+    .ht-wrap {{position:relative;display:inline-block;vertical-align:middle;margin-left:3px}}
+    .ht-icon {{display:inline-flex;align-items:center;justify-content:center;
+      width:14px;height:14px;border-radius:50%;background:#E5E7EB;color:#4C4C4C;
+      font-size:9px;font-weight:700;font-style:italic;cursor:pointer;
+      font-family:Georgia,serif;line-height:1}}
+    .ht-box {{visibility:hidden;opacity:0;position:absolute;z-index:999;
+      bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+      width:220px;padding:8px 10px;border-radius:8px;
+      background:#1a1a1a;color:#fff;font-size:11px;font-weight:400;
+      line-height:1.4;letter-spacing:normal;text-transform:none;
+      box-shadow:0 4px 12px rgba(0,0,0,.25);
+      transition:opacity .15s ease,visibility .15s ease;pointer-events:none}}
+    .ht-box::after {{content:'';position:absolute;top:100%;left:50%;
+      transform:translateX(-50%);border:5px solid transparent;border-top-color:#1a1a1a}}
+    .ht-wrap:hover .ht-box {{visibility:visible;opacity:1}}
+    </style>
     <div style="overflow-x:auto;border:1px solid #E5E7EB;border-radius:10px;background:#FFFFFF">
     <table style="width:100%;border-collapse:collapse;font-family:Manrope,sans-serif;font-size:.8rem">
     <thead>
       <tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CAMPAÑA</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">PROGRAMA</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CPL</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">TENDENCIA <span title="Evolución del CPL en las últimas 4 semanas. Línea descendente = mejorando." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">% INTENCIÓN <span title="Porcentaje de leads en etapas Consideración + Decisión sobre el total de leads válidos." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">€/ENTREV.</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">CUALIF. <span title="Tasa de cualificación: % de leads válidos que llegan a entrevista." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">LEADS</th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">SCORE <span title="Health Score (0-100): media ponderada de tendencia CPL (30%), calidad de leads (25%), coste/entrevista (25%) y volumen (20%)." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
-        <th style="padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em">ACCIÓN <span title="Escalar (score &gt;70), Mantener (40-70), Optimizar (25-40), Pausar (&lt;25), Nueva (&lt;4 semanas de datos)." style="cursor:help;color:#A0A0A0;font-size:.65rem">ⓘ</span></th>
+        <th style="{_th}">CAMPAÑA</th>
+        <th style="{_th}">PROGRAMA</th>
+        <th style="{_th}">CPL</th>
+        <th style="{_th}">{_tip("TENDENCIA", "Evolución del CPL en las últimas 4 semanas. Línea descendente = el coste por lead está mejorando.")}</th>
+        <th style="{_th}">{_tip("% INTENCIÓN", "% de leads en etapas Consideración + Decisión sobre el total de leads válidos. Más alto = leads más cualificados.")}</th>
+        <th style="{_th}">€/ENTREV.</th>
+        <th style="{_th}">{_tip("CUALIF.", "Tasa de cualificación: % de leads válidos que llegan a entrevista. Mide la calidad del lead.")}</th>
+        <th style="{_th}">LEADS</th>
+        <th style="{_th}">{_tip("SCORE", "Health Score (0-100). Pondera: tendencia CPL (30%), calidad leads (25%), coste/entrevista (25%), volumen (20%).")}</th>
+        <th style="{_th}">{_tip("ACCIÓN", "Escalar (&gt;70), Mantener (40-70), Optimizar (25-40), Pausar (&lt;25), Nueva (&lt;4 semanas de datos).")}</th>
       </tr>
     </thead>
     <tbody>

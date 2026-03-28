@@ -373,22 +373,18 @@ def detect_loss_pattern_alerts(
     if df.empty:
         return []
 
-    # Solo semana actual
-    df_curr = df[df["Semana"] == current_week]
-    if df_curr.empty:
-        df_curr = df
-
+    # Usar datos acumulados (todas las semanas) para patrones más fiables
     # Columnas de motivos disponibles
-    available = [col for col in _LOSS_REASONS if col in df_curr.columns]
+    available = [col for col in _LOSS_REASONS if col in df.columns]
     if not available:
         return []
 
-    # Agregar por campaña
-    agg_cols = {"Perdidos": ("Perdidos", "sum")} if "Perdidos" in df_curr.columns else {}
+    # Agregar por campaña (acumulado todas las semanas)
+    agg_cols = {"Perdidos": ("Perdidos", "sum")} if "Perdidos" in df.columns else {}
     for col in available:
         agg_cols[col] = (col, "sum")
 
-    by_camp = df_curr.groupby("ID_Campaña").agg(**agg_cols).reset_index()
+    by_camp = df.groupby("ID_Campaña").agg(**agg_cols).reset_index()
     if "Perdidos" not in by_camp.columns:
         by_camp["Perdidos"] = sum(by_camp[col] for col in available)
     by_camp = by_camp[by_camp["Perdidos"] > 0]
@@ -413,7 +409,7 @@ def detect_loss_pattern_alerts(
             pct = row[f"pct_{col}"]
             media = medias[col]
             diff = pct - media
-            if diff > 15 and pct > 20:  # >15pp por encima de la media Y >20% absoluto
+            if diff > 10 and pct > 15:  # >10pp por encima de la media Y >15% absoluto
                 info = _LOSS_REASONS[col]
                 alerts.append({
                     "type": "info",

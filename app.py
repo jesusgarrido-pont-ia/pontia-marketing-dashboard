@@ -317,42 +317,153 @@ a{color:#EE7015}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# AUTHENTICATION
+# AUTHENTICATION — Google OAuth2
 # ══════════════════════════════════════════════════════════════════════════════
-def _load_auth_config() -> dict:
-    """Lee credenciales de st.secrets o config.yaml (fallback).
-    Soporta password_hash (SHA-256) y password (legacy)."""
+import secrets
+import requests as _requests
+from urllib.parse import urlencode, parse_qs
+
+_GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+_GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+_GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
+_ALLOWED_DOMAIN = "pontia.tech"
+
+
+def _get_oauth_config() -> dict:
+    """Lee credenciales OAuth de st.secrets."""
+    try:
+        return dict(st.secrets.get("google_oauth", {}))
+    except Exception:
+        return {}
+
+
+def _get_redirect_uri() -> str:
+    """Genera la redirect URI basada en la URL actual de la app."""
+    # En Streamlit Cloud
+    try:
+        from streamlit.web.server.websocket_headers import _get_websocket_headers
+        headers = _get_websocket_headers()
+        if headers and headers.get("Host"):
+            host = headers["Host"]
+            proto = "https" if "streamlit.app" in host else "http"
+            return f"{proto}://{host}/oauth2callback"
+    except Exception:
+        pass
+    # Fallback: leer de secrets o usar localhost
+    try:
+        uri = st.secrets.get("google_oauth", {}).get("redirect_uri", "")
+        if uri:
+            return uri
+    except Exception:
+        pass
+    return "http://localhost:8501/oauth2callback"
+
+
+def _get_authorized_emails() -> list:
+    """Lee emails autorizados de st.secrets o config.yaml."""
     try:
         auth_sec = dict(st.secrets.get("auth", {}))
-        if auth_sec:
-            return auth_sec
+        if auth_sec.get("authorized_emails"):
+            return [e.lower().strip() for e in auth_sec["authorized_emails"] if e]
     except Exception:
         pass
     cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
     if os.path.exists(cfg_path):
         with open(cfg_path) as f:
             cfg = yaml.safe_load(f)
-        return cfg.get("auth", {})
-    return {}
+        return [e.lower().strip() for e in cfg.get("auth", {}).get("authorized_emails", []) if e]
+    return []
 
 
-def check_login(email: str, password: str) -> bool:
-    import re as _re
-    if not email or not _re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email.strip()):
+def _handle_oauth_callback():
+    """Procesa el callback de Google OAuth2."""
+    params = st.query_params
+    code = params.get("code")
+    state = params.get("state")
+
+    if not code:
         return False
-    cfg = _load_auth_config()
-    authorized = [e.lower().strip() for e in cfg.get("authorized_emails", []) if e]
-    if email.lower().strip() not in authorized:
+
+    # Verificar state para prevenir CSRF
+    saved_state = st.session_state.get("_oauth_state")
+    if not saved_state or state != saved_state:
+        st.error("Error de seguridad: state no coincide. Intenta de nuevo.")
+        st.query_params.clear()
         return False
-    if "password_hash" not in cfg:
+
+    oauth_cfg = _get_oauth_config()
+    redirect_uri = _get_redirect_uri()
+
+    # Intercambiar code por token
+    try:
+        token_resp = _requests.post(_GOOGLE_TOKEN_URL, data={
+            "code": code,
+            "client_id": oauth_cfg["client_id"],
+            "client_secret": oauth_cfg["client_secret"],
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        }, timeout=10)
+        token_data = token_resp.json()
+    except Exception:
+        st.error("Error al conectar con Google. Intenta de nuevo.")
+        st.query_params.clear()
         return False
-    input_hash = hashlib.sha256(password.encode()).hexdigest()
-    return input_hash == cfg["password_hash"]
+
+    if "access_token" not in token_data:
+        st.error("Error de autenticación con Google. Intenta de nuevo.")
+        st.query_params.clear()
+        return False
+
+    # Obtener info del usuario
+    try:
+        user_resp = _requests.get(
+            _GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            timeout=10,
+        )
+        user_info = user_resp.json()
+    except Exception:
+        st.error("Error al obtener datos del usuario.")
+        st.query_params.clear()
+        return False
+
+    email = user_info.get("email", "").lower().strip()
+    domain = email.split("@")[-1] if "@" in email else ""
+
+    # Verificar dominio
+    if domain != _ALLOWED_DOMAIN:
+        st.error(f"Solo se permite acceso con cuentas @{_ALLOWED_DOMAIN}")
+        st.query_params.clear()
+        return False
+
+    # Verificar email autorizado
+    authorized = _get_authorized_emails()
+    if authorized and email not in authorized:
+        st.error(f"Tu cuenta ({email}) no está autorizada. Contacta con el administrador.")
+        st.query_params.clear()
+        return False
+
+    # Login exitoso
+    import time as _time
+    st.session_state["authenticated"] = True
+    st.session_state["user_email"] = email
+    st.session_state["user_name"] = user_info.get("name", email)
+    st.session_state["user_picture"] = user_info.get("picture", "")
+    st.session_state["_auth_time"] = _time.time()
+    st.query_params.clear()
+    return True
 
 
 def show_login_page():
     inject_css()
-    # Extra CSS para el contenedor de login
+    oauth_cfg = _get_oauth_config()
+
+    # Procesar callback si viene de Google
+    if st.query_params.get("code"):
+        if _handle_oauth_callback():
+            st.rerun()
+        return
+
     st.markdown(
         """<style>
         .login-wrap [data-testid="column"]:nth-child(2) > div {
@@ -365,7 +476,6 @@ def show_login_page():
     logo_path = os.path.join(os.path.dirname(__file__), "Pontia_Logo_Isotipo_Black.png")
     _, col, _ = st.columns([1, 1.2, 1])
     with col:
-        # Logo centrado
         lc1, lc2, lc3 = st.columns([1, 0.6, 1])
         with lc2:
             if os.path.exists(logo_path):
@@ -380,37 +490,41 @@ def show_login_page():
             unsafe_allow_html=True,
         )
 
-        # Toggle entre login y recuperación de contraseña
-        if st.session_state.get("show_forgot_pw"):
+        if oauth_cfg.get("client_id"):
+            # Google OAuth login
             st.markdown(
                 '<p style="font-size:.85rem;color:#808080;text-align:center;margin-bottom:1rem">'
-                'Introduce tu correo autorizado y te mostraremos la contraseña.</p>',
+                'Inicia sesión con tu cuenta corporativa @pontia.tech</p>',
                 unsafe_allow_html=True,
             )
-            forgot_email = st.text_input("Correo electrónico", placeholder="tu@pontia.es", key="forgot_email")
-            if st.button("Recuperar contraseña", use_container_width=True):
-                st.info("Contacta con el administrador en admin@pontia.tech para recuperar tu contraseña.")
+
+            if st.button("🔐 Iniciar sesión con Google", use_container_width=True):
+                state = secrets.token_urlsafe(32)
+                st.session_state["_oauth_state"] = state
+                redirect_uri = _get_redirect_uri()
+                auth_url = f"{_GOOGLE_AUTH_URL}?" + urlencode({
+                    "client_id": oauth_cfg["client_id"],
+                    "redirect_uri": redirect_uri,
+                    "response_type": "code",
+                    "scope": "openid email profile",
+                    "access_type": "offline",
+                    "state": state,
+                    "hd": _ALLOWED_DOMAIN,
+                    "prompt": "select_account",
+                })
+                st.markdown(
+                    f'<meta http-equiv="refresh" content="0;url={auth_url}">',
+                    unsafe_allow_html=True,
+                )
+                st.stop()
+
             st.markdown(
-                '<div style="text-align:center;margin-top:.8rem">'
-                '<span style="font-size:.82rem;color:#808080">¿Ya la recuerdas?</span></div>',
+                f'<p style="font-size:.7rem;color:#A0A0A0;text-align:center;margin-top:1rem">'
+                f'Solo cuentas @{_ALLOWED_DOMAIN} autorizadas</p>',
                 unsafe_allow_html=True,
             )
-            if st.button("← Volver al inicio de sesión", use_container_width=True, type="secondary"):
-                st.session_state["show_forgot_pw"] = False
-                st.rerun()
         else:
-            email = st.text_input("Correo electrónico", placeholder="tu@pontia.es", key="login_email")
-            password = st.text_input("Contraseña", type="password", placeholder="••••••••", key="login_pw")
-            if st.button("Entrar →", use_container_width=True):
-                if check_login(email, password):
-                    st.session_state["authenticated"] = True
-                    st.session_state["user_email"] = email
-                    st.rerun()
-                else:
-                    st.error("Correo o contraseña incorrectos. Contacta con el administrador.")
-            if st.button("¿Olvidaste tu contraseña?", use_container_width=True, type="secondary"):
-                st.session_state["show_forgot_pw"] = True
-                st.rerun()
+            st.error("OAuth no configurado. Añade google_oauth.client_id en Streamlit Secrets.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2018,10 +2132,20 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     email = st.session_state.get("user_email", "")
-    st.sidebar.markdown(
-        f'<div class="sb-user">👤 {email}</div>',
-        unsafe_allow_html=True,
-    )
+    user_name = st.session_state.get("user_name", email)
+    user_pic = st.session_state.get("user_picture", "")
+    if user_pic:
+        st.sidebar.markdown(
+            f'<div class="sb-user">'
+            f'<img src="{user_pic}" style="width:22px;height:22px;border-radius:50%;vertical-align:middle;margin-right:6px">'
+            f'{user_name}</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.sidebar.markdown(
+            f'<div class="sb-user">👤 {user_name}</div>',
+            unsafe_allow_html=True,
+        )
 
     st.sidebar.markdown("### 🔍 Filtros")
 

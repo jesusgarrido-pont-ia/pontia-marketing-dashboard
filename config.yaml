@@ -6,9 +6,9 @@
 # ─────────────────────────────────────────────────────────────
 
 auth:
-  # Contraseña compartida (SHA-256 hash de "REDACTED")
-  # Para generar un nuevo hash: python -c "import hashlib; print(hashlib.sha256('TU_CLAVE'.encode()).hexdigest())"
-  password_hash: "3cc9e51bfe93cf912b41574e691d925080929ff6730424c3e8473145033a8354"
+  # Contraseña: configurar password_hash en Streamlit Secrets (SHA-256)
+  # Generar hash: python -c "import hashlib; print(hashlib.sha256('TU_CLAVE'.encode()).hexdigest())"
+  # NO poner el hash aquí — este archivo está versionado en git
   authorized_emails:
     - jesus.garrido@pontia.tech
     # - otro@pontia.tech
@@ -17,9 +17,8 @@ auth:
 # Google Sheets
 # ─────────────────────────────────────────────────────────────
 google_sheets:
-  spreadsheet_id: "CONFIGURE_IN_SECRETS"
-  sheet_name: "02_DATA_LOG"
-  sheet_gid: "1786324848"
+  # spreadsheet_id, sheet_name, sheet_gid → configurar en Streamlit Secrets
+  # NO poner IDs aquí — este archivo está versionado en git
 
 # ─────────────────────────────────────────────────────────────
 # Benchmarks — Umbrales para semáforos y alertas

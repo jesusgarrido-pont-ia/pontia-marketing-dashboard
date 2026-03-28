@@ -95,7 +95,7 @@ def _fetch_all_contacts(token: str, since_days: int = 180) -> list[dict]:
         resp = requests.post(url, headers=_headers(token), json=body, timeout=15)
         if resp.status_code != 200:
             raise RuntimeError(
-                f"HubSpot API error {resp.status_code}: {resp.text[:200]}"
+                f"HubSpot API error (status {resp.status_code}). Verifica el access_token en Secrets."
             )
         data = resp.json()
 

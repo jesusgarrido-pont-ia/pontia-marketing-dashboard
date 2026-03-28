@@ -337,16 +337,17 @@ def _load_auth_config() -> dict:
 
 
 def check_login(email: str, password: str) -> bool:
+    import re as _re
+    if not email or not _re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email.strip()):
+        return False
     cfg = _load_auth_config()
     authorized = [e.lower().strip() for e in cfg.get("authorized_emails", []) if e]
     if email.lower().strip() not in authorized:
         return False
-    # New hashed password mode
-    if "password_hash" in cfg:
-        input_hash = hashlib.sha256(password.encode()).hexdigest()
-        return input_hash == cfg["password_hash"]
-    # Legacy plaintext password (backward compat)
-    return password == cfg.get("password", "")
+    if "password_hash" not in cfg:
+        return False
+    input_hash = hashlib.sha256(password.encode()).hexdigest()
+    return input_hash == cfg["password_hash"]
 
 
 def show_login_page():
@@ -2075,7 +2076,9 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
                          estado=estados_sel if estados_sel else None)
     # Apply campaign search filter
     if search_campana and search_campana.strip():
-        df_f = df_f[df_f["ID_Campaña"].str.contains(search_campana.strip(), case=False, na=False)]
+        import re as _re
+        _escaped = _re.escape(search_campana.strip())
+        df_f = df_f[df_f["ID_Campaña"].str.contains(_escaped, case=False, na=False)]
     st.sidebar.markdown(
         f"""
         <div style="font-size:.75rem;color:#808080;line-height:1.8">
@@ -2384,6 +2387,15 @@ def main():
     if not st.session_state.get("authenticated"):
         show_login_page()
         st.stop()
+
+    # ── Session timeout (8 horas) ─────────────────────────────────────────
+    import time as _time
+    _SESSION_TIMEOUT = 8 * 3600  # 8 horas
+    _now = _time.time()
+    if _now - st.session_state.get("_auth_time", _now) > _SESSION_TIMEOUT:
+        st.session_state.clear()
+        st.rerun()
+    st.session_state.setdefault("_auth_time", _now)
 
     # ── Load data ─────────────────────────────────────────────────────────────
     loading_placeholder = st.empty()

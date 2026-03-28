@@ -1095,6 +1095,74 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
         st.info("No hay campañas de pago en el filtro seleccionado.")
         return
 
+    # ── Sección 0: KPIs Globales ─────────────────────────────────────────
+    b_cpl = benchmarks.get("cpl", _DEFAULT_BENCHMARKS["cpl"])
+    b_roas = benchmarks.get("roas", _DEFAULT_BENCHMARKS["roas"])
+    b_ce = benchmarks.get("coste_entrevista", _DEFAULT_BENCHMARKS["coste_entrevista"])
+    b_leads = benchmarks.get("leads", _DEFAULT_BENCHMARKS["leads"])
+    b_mat = benchmarks.get("matriculados", _DEFAULT_BENCHMARKS["matriculados"])
+
+    inv = df_filtered["Inversión (€)"].sum()
+    leads = int(df_filtered["Leads Válidos"].sum())
+    cpl = df_filtered["CPL (€)"].mean()
+    entrevistas = int(df_filtered["Entrevistas"].sum())
+    coste_ent = inv / entrevistas if entrevistas > 0 else None
+    matriculados = int(df_filtered["Matriculados"].sum())
+    ingresos = df_filtered["Ingresos (€)"].sum()
+    roas = ingresos / inv if inv > 0 else None
+
+    prev = _get_previous_period_data(df_filtered, df_all)
+    deltas = {}
+    if not prev.empty:
+        p_inv = prev["Inversión (€)"].sum()
+        p_leads = int(prev["Leads Válidos"].sum())
+        p_cpl = prev["CPL (€)"].mean()
+        p_ent = int(prev["Entrevistas"].sum())
+        p_ce = p_inv / p_ent if p_ent > 0 else None
+        p_mat = int(prev["Matriculados"].sum())
+        p_ing = prev["Ingresos (€)"].sum()
+        p_roas = p_ing / p_inv if p_inv > 0 else None
+
+        def _dpct(curr, prev_val):
+            if prev_val and prev_val != 0 and not pd.isna(prev_val) and curr is not None and not pd.isna(curr):
+                d = (curr - prev_val) / abs(prev_val) * 100
+                return f"{'+' if d >= 0 else ''}{d:.1f}%"
+            return None
+
+        deltas = {
+            "inv": _dpct(inv, p_inv), "leads": _dpct(leads, p_leads),
+            "cpl": _dpct(cpl, p_cpl), "entrevistas": _dpct(entrevistas, p_ent),
+            "coste_ent": _dpct(coste_ent, p_ce), "matriculados": _dpct(matriculados, p_mat),
+            "ingresos": _dpct(ingresos, p_ing), "roas": _dpct(roas, p_roas),
+        }
+
+    section("KPIs GLOBALES")
+    cards = []
+    cards.append(kpi_card("💰", "Inversión Total", fmt_eur(inv), "acumulado",
+                          delta=deltas.get("inv"), return_html=True))
+    cards.append(kpi_card("📥", "Leads Válidos", fmt_num(leads), "total",
+                          _color_badge(leads, b_leads["good"], b_leads["bad"]),
+                          "", delta=deltas.get("leads"), return_html=True))
+    badge = _color_badge(cpl, b_cpl["good"], b_cpl["review"], invert=True) if cpl else ""
+    cards.append(kpi_card("💡", "CPL Medio", fmt_eur(cpl, 2), "coste por lead", badge,
+                          "", delta=deltas.get("cpl"), return_html=True))
+    cards.append(kpi_card("🤝", "Entrevistas", fmt_num(entrevistas), "total",
+                          delta=deltas.get("entrevistas"), return_html=True))
+    badge = _color_badge(coste_ent, b_ce["good"], b_ce["bad"], invert=True) if coste_ent else ""
+    cards.append(kpi_card("💼", "Coste/Entrevista", fmt_eur(coste_ent, 1) if coste_ent else "—", "€ por entrevista",
+                          badge, "", delta=deltas.get("coste_ent"), return_html=True))
+    cards.append(kpi_card("🎓", "Matriculados", fmt_num(matriculados), "total",
+                          _color_badge(matriculados, b_mat["good"], b_mat["bad"]), "",
+                          delta=deltas.get("matriculados"), return_html=True))
+    cards.append(kpi_card("💵", "Ingresos", fmt_eur(ingresos), "acumulado",
+                          delta=deltas.get("ingresos"), return_html=True))
+    badge = _color_badge(roas, 3, b_roas["bad"]) if roas else ""
+    cards.append(kpi_card("📈", "ROAS Global", f"{roas:.2f}x" if roas else "—", "retorno inversión",
+                          badge, "", delta=deltas.get("roas"), return_html=True))
+    kpi_grid(cards)
+
+    st.markdown('<div class="div"></div>', unsafe_allow_html=True)
+
     # ── Sección A: Resumen de acciones ────────────────────────────────────
     section("PANEL DE DECISIONES INTELIGENTE")
 
@@ -1649,15 +1717,9 @@ def tab_campanas(df: pd.DataFrame, benchmarks=None):
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        section("CPL por Campaña")
-        with st.container(border=True):
-            st.plotly_chart(chart_cpl_campanas(df, benchmarks), use_container_width=True, config={"displayModeBar": False}, key="cpl_campanas")
-    with c2:
-        section("ROAS por Campaña")
-        with st.container(border=True):
-            st.plotly_chart(chart_roas_campanas(df, benchmarks), use_container_width=True, config={"displayModeBar": False}, key="roas_campanas")
+    section("CPL por Campaña")
+    with st.container(border=True):
+        st.plotly_chart(chart_cpl_campanas(df, benchmarks), use_container_width=True, config={"displayModeBar": False}, key="cpl_campanas")
 
     section("Mapa de Eficiencia — CPL vs Leads (tamaño del círculo = Inversión)")
     st.caption("Las campañas ideales están en la zona inferior-derecha: bajo CPL y muchos leads.")
@@ -1764,41 +1826,6 @@ def tab_historico(df: pd.DataFrame):
                     st.plotly_chart(fig, use_container_width=True,
                                     config={"displayModeBar": False},
                                     key=f"evol_{col_data}")
-
-    # ── Tabla de tendencias ───────────────────────────────────────────────────
-    st.markdown("---")
-    section("Tabla de tendencias — última semana vs semana anterior")
-    st.caption("🟢 Mejora · 🔴 Empeora · ⚪ Sin cambio o datos insuficientes")
-
-    rows = []
-    for camp in selected:
-        d = agg[agg["ID_Campaña"] == camp].sort_values("Semana")
-        if len(d) < 2:
-            continue
-        last, prev = d.iloc[-1], d.iloc[-2]
-
-        def trend(new, old, lower_better=False):
-            if pd.isna(new) or pd.isna(old) or old == 0:
-                return "⚪"
-            better = new < old if lower_better else new > old
-            return "🟢" if better else "🔴"
-
-        rows.append({
-            "Campaña": camp,
-            f"CPL S{int(last.Semana)}": f"{last.CPL:.1f} €" if not pd.isna(last.CPL) else "—",
-            "CPL ↗": trend(last.CPL, prev.CPL, lower_better=True),
-            f"ROAS S{int(last.Semana)}": f"{last.ROAS:.2f}x" if not pd.isna(last.ROAS) else "—",
-            "ROAS ↗": trend(last.ROAS, prev.ROAS),
-            f"Leads S{int(last.Semana)}": int(last.Leads),
-            "Leads ↗": trend(last.Leads, prev.Leads),
-            f"Ingresos S{int(last.Semana)}": f"{last.Ingresos:,.0f} €",
-            "Ingresos ↗": trend(last.Ingresos, prev.Ingresos),
-        })
-
-    if rows:
-        st.dataframe(pd.DataFrame(rows).set_index("Campaña"), use_container_width=True)
-    else:
-        st.info("Se necesitan al menos 2 semanas de datos para calcular tendencias.")
 
     # ── Heatmap ───────────────────────────────────────────────────────────────
     st.markdown("---")
@@ -2389,33 +2416,27 @@ def main():
     benchmarks = _load_benchmarks()
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    t0, t1, t2, t3, t4, t5, t6, t7 = st.tabs([
+    t0, t1, t2, t3, t4, t5 = st.tabs([
         "🎯 Panel de Decisiones",
-        "📊 Resumen General",
         "🎯 Por Campaña",
         "📈 Evolución Histórica",
         "🚨 Análisis de Pérdidas",
         "📋 Datos",
         "📖 Guía de Uso",
-        "🔧 Diagnóstico HubSpot",
     ])
 
     with t0:
         tab_decisiones(df_filtered, df_all, benchmarks)
     with t1:
-        tab_resumen(df_filtered, df_all, benchmarks)
-    with t2:
         tab_campanas(df_filtered, benchmarks)
-    with t3:
+    with t2:
         tab_historico(df_filtered)
-    with t4:
+    with t3:
         tab_perdidas(df_filtered)
-    with t5:
+    with t4:
         tab_datos(df_filtered)
-    with t6:
+    with t5:
         tab_guia()
-    with t7:
-        _tab_diagnostico_hubspot()
 
     # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown(

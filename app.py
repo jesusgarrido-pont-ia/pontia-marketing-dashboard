@@ -1228,6 +1228,12 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
     st.markdown("<div style='margin-top:1.5rem'></div>", unsafe_allow_html=True)
     section("COBERTURA POR PROGRAMA")
 
+    _channel_labels = {
+        "Meta Ads (FB/IG)": ("Meta", "#1877F2"),
+        "Google Ads": ("Google", "#EA4335"),
+        "LinkedIn Ads": ("LinkedIn", "#0A66C2"),
+    }
+
     prog_summary = (
         health_df.groupby("Programa")
         .apply(lambda g: pd.Series({
@@ -1235,6 +1241,7 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
             "sanas": len(g[g["Action"].isin(["ESCALAR", "MANTENER"])]),
             "atencion": len(g[g["Action"].isin(["OPTIMIZAR", "PAUSAR"])]),
             "nuevas": len(g[g["Action"] == "NUEVA"]),
+            "canales": list(g["Canal"].unique()),
         }))
         .reset_index()
     )
@@ -1256,6 +1263,17 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
                 status_icon = "✅"
 
             nueva_txt = f' · {ps["nuevas"]} nuevas' if ps["nuevas"] > 0 else ""
+
+            # Channel badges
+            badges = ""
+            for ch in ps["canales"]:
+                label, color = _channel_labels.get(ch, (ch, "#6B7280"))
+                badges += (
+                    f'<span style="display:inline-block;font-size:.58rem;font-weight:700;'
+                    f'color:{color};background:{color}14;border:1px solid {color}33;'
+                    f'border-radius:4px;padding:1px 5px;margin-right:3px">{label}</span>'
+                )
+
             st.markdown(
                 f'<div style="background:{bg_color};border:1px solid {border_color};'
                 f'border-radius:10px;padding:.7rem;margin-bottom:.5rem">'
@@ -1263,7 +1281,9 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
                 f'<div style="font-size:.72rem;color:#4C4C4C;margin-top:.2rem">'
                 f'{ps["total"]} campañas · <span style="color:#16A34A">{ps["sanas"]} sanas</span>'
                 f' · <span style="color:#DC2626">{ps["atencion"]} atención</span>{nueva_txt}'
-                f'</div></div>',
+                f'</div>'
+                f'<div style="margin-top:.35rem">{badges}</div>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
 

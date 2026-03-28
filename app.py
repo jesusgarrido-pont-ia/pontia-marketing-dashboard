@@ -1150,17 +1150,28 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
     # ── Sección B: Alertas semanales ──────────────────────────────────────
     alerts = detect_alerts(df_all, current_week)
     decline_alerts = detect_decline_alerts(df_all, current_week, benchmarks, health_df_all)
-    all_alerts = alerts + decline_alerts
-    if all_alerts:
+
+    if alerts:
         section("ALERTAS SEMANALES")
         st.markdown(
             f'<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
             f'Cambios S{current_week} vs S{current_week - 1} (esta semana vs semana anterior)</p>',
             unsafe_allow_html=True,
         )
-        for a in all_alerts[:10]:  # máximo 10 alertas
+        for a in alerts[:8]:
             kind = "d" if a["type"] == "danger" else "w"
             alert(a["message"], kind)
+        st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
+
+    if decline_alerts:
+        section("CAMPAÑAS EN DECLIVE")
+        st.markdown(
+            '<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
+            'Campañas veteranas (5+ semanas) cuyo health score ha caído significativamente</p>',
+            unsafe_allow_html=True,
+        )
+        for a in decline_alerts[:5]:
+            alert(a["message"], "w")
         st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
 
     # ── Sección C: Tabla de Salud de Campañas ─────────────────────────────

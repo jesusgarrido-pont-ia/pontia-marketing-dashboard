@@ -217,6 +217,13 @@ a{color:#EE7015}
 /* ── Section title ────────────────────────── */
 .sec{font-size:.8rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#EE7015;border-left:3px solid #EE7015;padding-left:.7rem;margin:1.2rem 0 .6rem}
 
+/* ── Info tooltips ────────────────────────── */
+.ht-wrap{position:relative;display:inline-block;vertical-align:middle;margin-left:3px}
+.ht-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#E5E7EB;color:#4C4C4C;font-size:9px;font-weight:700;font-style:italic;cursor:pointer;font-family:Georgia,serif;line-height:1}
+.ht-box{visibility:hidden;opacity:0;position:absolute;z-index:999;top:calc(100% + 8px);left:50%;transform:translateX(-50%);width:220px;padding:8px 10px;border-radius:8px;background:#ffffff !important;color:#333333 !important;font-size:11px !important;font-weight:400 !important;border:1px solid #E5E7EB !important;line-height:1.4;letter-spacing:normal;text-transform:none;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:opacity .15s ease,visibility .15s ease;pointer-events:none}
+.ht-box::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#E5E7EB}
+.ht-wrap:hover .ht-box{visibility:visible;opacity:1}
+
 /* ── Alert boxes ──────────────────────────── */
 .al{border-radius:9px;padding:.75rem .9rem;font-size:.85rem;margin:.3rem 0;display:flex;align-items:flex-start;gap:.5rem;line-height:1.4}
 .al-w{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:#92400E}
@@ -1251,7 +1258,11 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
         section("PATRONES DE PÉRDIDA")
         st.markdown(
             '<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
-            'Campañas con motivos de cierre por encima de la media. Útil para ajustar audiencias y mensajes.</p>',
+            'Campañas con motivos de cierre por encima de la media. Útil para ajustar audiencias y mensajes. '
+            '<span class="ht-wrap"><span class="ht-icon">i</span>'
+            '<span class="ht-box">Compara las últimas 2 semanas con la media global de todas las campañas. '
+            'Solo muestra motivos que superan la media en más de 10 puntos porcentuales.</span></span>'
+            '</p>',
             unsafe_allow_html=True,
         )
         for a in loss_alerts[:6]:
@@ -1320,24 +1331,6 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
     _th = 'padding:.6rem .5rem;text-align:left;font-size:.7rem;font-weight:700;color:#4C4C4C;letter-spacing:.05em'
 
     table_html = f"""
-    <style>
-    .ht-wrap {{position:relative;display:inline-block;vertical-align:middle;margin-left:3px}}
-    .ht-icon {{display:inline-flex;align-items:center;justify-content:center;
-      width:14px;height:14px;border-radius:50%;background:#E5E7EB;color:#4C4C4C;
-      font-size:9px;font-weight:700;font-style:italic;cursor:pointer;
-      font-family:Georgia,serif;line-height:1}}
-    .ht-box {{visibility:hidden;opacity:0;position:absolute;z-index:999;
-      top:calc(100% + 8px);left:50%;transform:translateX(-50%);
-      width:220px;padding:8px 10px;border-radius:8px;
-      background:#ffffff !important;color:#333333 !important;font-size:11px !important;font-weight:400 !important;
-      border:1px solid #E5E7EB !important;
-      line-height:1.4;letter-spacing:normal;text-transform:none;
-      box-shadow:0 4px 12px rgba(0,0,0,.25);
-      transition:opacity .15s ease,visibility .15s ease;pointer-events:none}}
-    .ht-box::after {{content:'';position:absolute;bottom:100%;left:50%;
-      transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#E5E7EB}}
-    .ht-wrap:hover .ht-box {{visibility:visible;opacity:1}}
-    </style>
     <div style="overflow-x:auto;overflow-y:visible;border:1px solid #E5E7EB;border-radius:10px;background:#FFFFFF;position:relative">
     <table style="width:100%;border-collapse:collapse;font-family:Manrope,sans-serif;font-size:.8rem">
     <thead>

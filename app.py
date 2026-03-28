@@ -1794,6 +1794,9 @@ def tab_campanas(df: pd.DataFrame, benchmarks=None):
 
 def _chart_evolucion_metric(agg: pd.DataFrame, col: str, title: str, campaigns: list, fmt: str = "") -> go.Figure:
     """Gráfica de líneas: evolución semanal de una métrica para las campañas seleccionadas."""
+    # Orden correcto de semanas (numérico)
+    semanas_ordenadas = agg.sort_values("Semana")["Semana_label"].unique().tolist()
+
     fig = go.Figure()
     for i, camp in enumerate(campaigns):
         d = agg[agg["ID_Campaña"] == camp].sort_values("Semana")
@@ -1809,7 +1812,10 @@ def _chart_evolucion_metric(agg: pd.DataFrame, col: str, title: str, campaigns: 
             hovertemplate=f"<b>{camp}</b><br>%{{x}}<br>{title}: %{{y:.1f}}{fmt}<extra></extra>",
         ))
     _base(fig, title, height=320)
-    fig.update_layout(legend={**LEGEND_BASE, "orientation": "h", "y": -0.32, "font": dict(size=9)})
+    fig.update_layout(
+        legend={**LEGEND_BASE, "orientation": "h", "y": -0.32, "font": dict(size=9)},
+        xaxis=dict(categoryorder="array", categoryarray=semanas_ordenadas),
+    )
     return fig
 
 

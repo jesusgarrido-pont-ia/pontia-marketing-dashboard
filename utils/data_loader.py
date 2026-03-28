@@ -72,7 +72,7 @@ def load_data() -> pd.DataFrame:
             # HubSpot devolvió datos vacíos — caer a Google Sheets
             st.info("📡 HubSpot no devolvió datos (¿no hay contactos con utm_campaign?). Usando Google Sheets.")
         except Exception as e:
-            st.error(f"❌ Error HubSpot: {e}")
+            st.error("❌ Error al cargar datos. Contacta con el administrador.")
             st.info("Usando Google Sheets como respaldo...")
 
     # Google Sheets

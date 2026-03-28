@@ -317,16 +317,22 @@ a{color:#EE7015}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# AUTHENTICATION — Google OAuth2
+# AUTHENTICATION — Google OAuth2 (Hardened)
 # ══════════════════════════════════════════════════════════════════════════════
 import secrets
+import time as _time
+import re as _re
+import html as _html
 import requests as _requests
-from urllib.parse import urlencode, parse_qs
+from urllib.parse import urlencode, quote
 
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 _ALLOWED_DOMAIN = "pontia.tech"
+_SESSION_TIMEOUT = 30 * 60  # 30 minutos
+_LOGIN_COOLDOWN = 60  # 60 segundos tras 5 intentos fallidos
+_MAX_LOGIN_ATTEMPTS = 5
 
 
 def _get_oauth_config() -> dict:
@@ -338,22 +344,22 @@ def _get_oauth_config() -> dict:
 
 
 def _get_redirect_uri() -> str:
-    """Genera la redirect URI basada en la URL actual de la app."""
-    # En Streamlit Cloud
+    """Genera la redirect URI. Siempre HTTPS en producción."""
+    # Primero: leer de secrets (más fiable)
+    try:
+        uri = st.secrets.get("google_oauth", {}).get("redirect_uri", "")
+        if uri:
+            return uri
+    except Exception:
+        pass
+    # Fallback: detectar desde headers
     try:
         from streamlit.web.server.websocket_headers import _get_websocket_headers
         headers = _get_websocket_headers()
         if headers and headers.get("Host"):
             host = headers["Host"]
-            proto = "https" if "streamlit.app" in host else "http"
-            return f"{proto}://{host}/oauth2callback"
-    except Exception:
-        pass
-    # Fallback: leer de secrets o usar localhost
-    try:
-        uri = st.secrets.get("google_oauth", {}).get("redirect_uri", "")
-        if uri:
-            return uri
+            # SIEMPRE HTTPS en producción
+            return f"https://{host}/oauth2callback"
     except Exception:
         pass
     return "http://localhost:8501/oauth2callback"
@@ -375,8 +381,54 @@ def _get_authorized_emails() -> list:
     return []
 
 
+def _check_rate_limit() -> bool:
+    """Verifica rate limiting. Devuelve True si el intento está permitido."""
+    attempts = st.session_state.get("_login_attempts", 0)
+    last_attempt = st.session_state.get("_last_login_attempt", 0)
+    now = _time.time()
+
+    # Reset counter si pasó el cooldown
+    if now - last_attempt > _LOGIN_COOLDOWN:
+        st.session_state["_login_attempts"] = 0
+        return True
+
+    if attempts >= _MAX_LOGIN_ATTEMPTS:
+        remaining = int(_LOGIN_COOLDOWN - (now - last_attempt))
+        st.error(f"Demasiados intentos. Espera {remaining} segundos.")
+        return False
+
+    return True
+
+
+def _record_login_attempt():
+    """Registra un intento de login para rate limiting."""
+    st.session_state["_login_attempts"] = st.session_state.get("_login_attempts", 0) + 1
+    st.session_state["_last_login_attempt"] = _time.time()
+
+
+def _validate_picture_url(url: str) -> str:
+    """Valida que la URL de la foto sea segura (solo HTTPS de Google)."""
+    if not url:
+        return ""
+    if not url.startswith("https://"):
+        return ""
+    # Solo permitir dominios de Google
+    allowed_domains = ["lh3.googleusercontent.com", "googleusercontent.com"]
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if not any(parsed.hostname and parsed.hostname.endswith(d) for d in allowed_domains):
+            return ""
+    except Exception:
+        return ""
+    return url
+
+
 def _handle_oauth_callback():
     """Procesa el callback de Google OAuth2."""
+    if not _check_rate_limit():
+        return False
+
     params = st.query_params
     code = params.get("code")
     state = params.get("state")
@@ -384,13 +436,18 @@ def _handle_oauth_callback():
     if not code:
         return False
 
-    # Verificar state — en Streamlit Cloud la sesión puede reiniciarse
-    # tras la redirección, así que validamos que el state tenga formato correcto
-    # (token URL-safe de 32+ bytes) como protección básica anti-CSRF
-    if not state or len(state) < 20:
-        st.error("Error de seguridad: parámetro state inválido. Intenta de nuevo.")
+    # Validar formato de code y state (solo caracteres URL-safe)
+    if not code or not _re.match(r'^[a-zA-Z0-9_\-/.]+$', str(code)):
+        st.error("Parámetros de autenticación inválidos.")
         st.query_params.clear()
         return False
+
+    if not state or len(state) < 20 or not _re.match(r'^[a-zA-Z0-9_\-]+$', str(state)):
+        st.error("Parámetros de seguridad inválidos.")
+        st.query_params.clear()
+        return False
+
+    _record_login_attempt()
 
     oauth_cfg = _get_oauth_config()
     redirect_uri = _get_redirect_uri()
@@ -403,15 +460,15 @@ def _handle_oauth_callback():
             "client_secret": oauth_cfg["client_secret"],
             "redirect_uri": redirect_uri,
             "grant_type": "authorization_code",
-        }, timeout=10)
+        }, timeout=10, verify=True)
         token_data = token_resp.json()
     except Exception:
-        st.error("Error al conectar con Google. Intenta de nuevo.")
+        st.error("No se pudo completar la autenticación. Intenta de nuevo.")
         st.query_params.clear()
         return False
 
     if "access_token" not in token_data:
-        st.error("Error de autenticación con Google. Intenta de nuevo.")
+        st.error("No se pudo completar la autenticación. Intenta de nuevo.")
         st.query_params.clear()
         return False
 
@@ -421,10 +478,17 @@ def _handle_oauth_callback():
             _GOOGLE_USERINFO_URL,
             headers={"Authorization": f"Bearer {token_data['access_token']}"},
             timeout=10,
+            verify=True,
         )
         user_info = user_resp.json()
     except Exception:
-        st.error("Error al obtener datos del usuario.")
+        st.error("No se pudo completar la autenticación. Intenta de nuevo.")
+        st.query_params.clear()
+        return False
+
+    # Verificar que email_verified sea True
+    if not user_info.get("email_verified", False):
+        st.error("La cuenta de Google no tiene el email verificado.")
         st.query_params.clear()
         return False
 
@@ -433,23 +497,25 @@ def _handle_oauth_callback():
 
     # Verificar dominio
     if domain != _ALLOWED_DOMAIN:
-        st.error(f"Solo se permite acceso con cuentas @{_ALLOWED_DOMAIN}")
+        # NO revelar qué dominio es válido — mensaje genérico
+        st.error("No tienes acceso a esta aplicación.")
         st.query_params.clear()
         return False
 
     # Verificar email autorizado
     authorized = _get_authorized_emails()
     if authorized and email not in authorized:
-        st.error(f"Tu cuenta ({email}) no está autorizada. Contacta con el administrador.")
+        # NO revelar el email ni que existe la whitelist — mensaje genérico
+        st.error("No tienes acceso a esta aplicación. Contacta con el administrador.")
         st.query_params.clear()
         return False
 
-    # Login exitoso
-    import time as _time
+    # Login exitoso — resetear rate limit
+    st.session_state["_login_attempts"] = 0
     st.session_state["authenticated"] = True
     st.session_state["user_email"] = email
-    st.session_state["user_name"] = user_info.get("name", email)
-    st.session_state["user_picture"] = user_info.get("picture", "")
+    st.session_state["user_name"] = _html.escape(user_info.get("name", email))
+    st.session_state["user_picture"] = _validate_picture_url(user_info.get("picture", ""))
     st.session_state["_auth_time"] = _time.time()
     st.query_params.clear()
     return True
@@ -492,10 +558,9 @@ def show_login_page():
         )
 
         if oauth_cfg.get("client_id"):
-            # Google OAuth login
             st.markdown(
                 '<p style="font-size:.85rem;color:#808080;text-align:center;margin-bottom:1rem">'
-                'Inicia sesión con tu cuenta corporativa @pontia.tech</p>',
+                'Inicia sesión con tu cuenta corporativa</p>',
                 unsafe_allow_html=True,
             )
 
@@ -518,12 +583,12 @@ def show_login_page():
             st.link_button("🔐 Iniciar sesión con Google", auth_url, use_container_width=True)
 
             st.markdown(
-                f'<p style="font-size:.7rem;color:#A0A0A0;text-align:center;margin-top:1rem">'
-                f'Solo cuentas @{_ALLOWED_DOMAIN} autorizadas</p>',
+                '<p style="font-size:.7rem;color:#A0A0A0;text-align:center;margin-top:1rem">'
+                'Solo cuentas corporativas autorizadas</p>',
                 unsafe_allow_html=True,
             )
         else:
-            st.error("OAuth no configurado. Añade google_oauth.client_id en Streamlit Secrets.")
+            st.error("Autenticación no configurada. Contacta con el administrador.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2131,12 +2196,13 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     email = st.session_state.get("user_email", "")
-    user_name = st.session_state.get("user_name", email)
+    user_name = _html.escape(st.session_state.get("user_name", email))
     user_pic = st.session_state.get("user_picture", "")
-    if user_pic:
+    # Solo mostrar imagen si es una URL validada de Google
+    if user_pic and user_pic.startswith("https://") and "googleusercontent.com" in user_pic:
         st.sidebar.markdown(
             f'<div class="sb-user">'
-            f'<img src="{user_pic}" style="width:22px;height:22px;border-radius:50%;vertical-align:middle;margin-right:6px">'
+            f'<img src="{_html.escape(user_pic)}" style="width:22px;height:22px;border-radius:50%;vertical-align:middle;margin-right:6px">'
             f'{user_name}</div>',
             unsafe_allow_html=True,
         )
@@ -2365,7 +2431,7 @@ def _tab_diagnostico_hubspot():
                 from utils.hubspot_loader import diagnose_hubspot
                 diag = diagnose_hubspot()
             except Exception as e:
-                st.error(f"Error conectando: {e}")
+                st.error("Error al conectar con el servicio. Contacta con el administrador.")
                 return
 
         if "error" in diag:
@@ -2511,14 +2577,14 @@ def main():
         show_login_page()
         st.stop()
 
-    # ── Session timeout (8 horas) ─────────────────────────────────────────
-    import time as _time
-    _SESSION_TIMEOUT = 8 * 3600  # 8 horas
+    # ── Session timeout (30 minutos) ──────────────────────────────────────
     _now = _time.time()
     if _now - st.session_state.get("_auth_time", _now) > _SESSION_TIMEOUT:
         st.session_state.clear()
         st.rerun()
     st.session_state.setdefault("_auth_time", _now)
+    # Renovar timeout en cada interacción
+    st.session_state["_auth_time"] = _now
 
     # ── Load data ─────────────────────────────────────────────────────────────
     loading_placeholder = st.empty()

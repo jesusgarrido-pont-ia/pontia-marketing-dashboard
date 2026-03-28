@@ -1090,10 +1090,14 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
 
     # Filtrar por campañas presentes en df_filtered (respeta filtros de sidebar)
     filtered_camps = df_filtered["ID_Campaña"].unique()
-    health_df = health_df_all[health_df_all["ID_Campaña"].isin(filtered_camps)]
+    health_df = health_df_all[health_df_all["ID_Campaña"].isin(filtered_camps)].copy()
     if health_df.empty:
         st.info("No hay campañas de pago en el filtro seleccionado.")
         return
+
+    # Merge Estado_Campaña
+    estado_map = df_all.groupby("ID_Campaña")["Estado_Campaña"].first()
+    health_df["Estado_Campaña"] = health_df["ID_Campaña"].map(estado_map).fillna("Sin estado")
 
     # ── Sección 0: KPIs Globales ─────────────────────────────────────────
     b_cpl = benchmarks.get("cpl", _DEFAULT_BENCHMARKS["cpl"])
@@ -1243,17 +1247,30 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
         st.markdown("<div style='margin-bottom:1rem'></div>", unsafe_allow_html=True)
 
     # ── Sección C: Tabla de Salud de Campañas ─────────────────────────────
-    section("TABLA DE SALUD DE CAMPAÑAS")
-    st.markdown(
-        '<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
-        'Score basado en: tendencia CPL (30%), calidad de leads (25%), coste/entrevista (25%), volumen (20%)'
-        '</p>',
-        unsafe_allow_html=True,
-    )
+    _c1, _c2 = st.columns([3, 1])
+    with _c1:
+        section("TABLA DE SALUD DE CAMPAÑAS")
+        st.markdown(
+            '<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
+            'Score basado en: tendencia CPL (30%), calidad de leads (25%), coste/entrevista (25%), volumen (20%)'
+            '</p>',
+            unsafe_allow_html=True,
+        )
+    with _c2:
+        estados_disponibles = sorted(health_df["Estado_Campaña"].unique().tolist())
+        filtro_estado = st.multiselect(
+            "Estado", estados_disponibles,
+            default=[e for e in estados_disponibles if e == "Activa"] or estados_disponibles,
+            key="filtro_estado_salud",
+        )
+
+    health_df_tabla = health_df[health_df["Estado_Campaña"].isin(filtro_estado)] if filtro_estado else health_df
+    if health_df_tabla.empty:
+        st.info("No hay campañas con el estado seleccionado.")
 
     # Construir tabla HTML
     table_rows = []
-    for _, row in health_df.iterrows():
+    for _, row in health_df_tabla.iterrows():
         style = ACTION_STYLES.get(row["Action"], ACTION_STYLES["MANTENER"])
 
         sparkline = _sparkline_svg(row["CPL_trend"])
@@ -1633,11 +1650,22 @@ def tab_campanas(df: pd.DataFrame, benchmarks=None):
     b_roas = benchmarks.get("roas", _DEFAULT_BENCHMARKS["roas"])
     b_conv = benchmarks.get("conv_lead_matricula", _DEFAULT_BENCHMARKS["conv_lead_matricula"])
 
-    section("Tabla de Rendimiento por Campaña")
-    st.caption("Los colores de CPL, ROAS y Conv. indican el rendimiento: 🟢 bueno · 🟡 mejorable · 🔴 crítico")
+    _rc1, _rc2 = st.columns([3, 1])
+    with _rc1:
+        section("Tabla de Rendimiento por Campaña")
+        st.caption("Los colores de CPL, ROAS y Conv. indican el rendimiento: 🟢 bueno · 🟡 mejorable · 🔴 crítico")
+    with _rc2:
+        estados_rend = sorted(df["Estado_Campaña"].unique().tolist()) if "Estado_Campaña" in df.columns else []
+        filtro_estado_rend = st.multiselect(
+            "Estado", estados_rend,
+            default=[e for e in estados_rend if e == "Activa"] or estados_rend,
+            key="filtro_estado_rendimiento",
+        )
+
+    df_tab = df[df["Estado_Campaña"].isin(filtro_estado_rend)] if filtro_estado_rend and "Estado_Campaña" in df.columns else df
 
     summary = (
-        df.groupby(["ID_Campaña", "Canal", "Programa"])
+        df_tab.groupby(["ID_Campaña", "Canal", "Programa"])
         .agg(
             Inversión=("Inversión (€)", "sum"),
             Leads=("Leads Válidos", "sum"),
@@ -1649,16 +1677,28 @@ def tab_campanas(df: pd.DataFrame, benchmarks=None):
         )
         .reset_index()
     )
+
+    if summary.empty:
+        st.info("No hay campañas con el estado seleccionado.")
+        return
+
     summary["ROAS"] = np.where(summary["Inversión"] > 0, summary["Ingresos"] / summary["Inversión"], np.nan)
     summary["Conv%"] = np.where(summary["Leads"] > 0, summary["Matriculados"] / summary["Leads"] * 100, np.nan)
 
+    # Añadir estado para colorear filas
+    if "Estado_Campaña" in df_tab.columns:
+        estado_map_rend = df_tab.groupby("ID_Campaña")["Estado_Campaña"].first()
+        summary["Estado"] = summary["ID_Campaña"].map(estado_map_rend).fillna("Sin estado")
+    else:
+        summary["Estado"] = "Sin estado"
+
     display = summary[[
         "ID_Campaña", "Canal", "Inversión", "Leads", "CPL",
-        "Entrevistas", "Matriculados", "Ingresos", "ROAS", "Conv%",
+        "Entrevistas", "Matriculados", "Ingresos", "ROAS", "Conv%", "Estado",
     ]].copy()
     display.columns = [
         "Campaña", "Canal", "Inversión €", "Leads", "CPL €",
-        "Entrevistas", "Matrículas", "Ingresos €", "ROAS", "Conv. %",
+        "Entrevistas", "Matrículas", "Ingresos €", "ROAS", "Conv. %", "Estado",
     ]
 
     # Funciones de color para Styler usando benchmarks
@@ -1687,6 +1727,16 @@ def tab_campanas(df: pd.DataFrame, benchmarks=None):
         if v >= conv_bad_t: return "color: #FFC107; font-weight: 700"
         return "color: #EF5350; font-weight: 700"
 
+    _estado_colors = {
+        "Activa": "background-color: rgba(22,163,74,.08)",
+        "Pausada": "background-color: rgba(107,114,128,.1)",
+        "Finalizada": "background-color: rgba(239,68,68,.08)",
+    }
+
+    def _row_color(row):
+        bg = _estado_colors.get(row["Estado"], "")
+        return [bg] * len(row)
+
     styled = (
         display.sort_values("Leads", ascending=False)
         .reset_index(drop=True)
@@ -1704,6 +1754,7 @@ def tab_campanas(df: pd.DataFrame, benchmarks=None):
         .applymap(_c_cpl, subset=["CPL €"])
         .applymap(_c_roas, subset=["ROAS"])
         .applymap(_c_conv, subset=["Conv. %"])
+        .apply(_row_color, axis=1)
     )
 
     st.dataframe(styled, use_container_width=True, height=420)

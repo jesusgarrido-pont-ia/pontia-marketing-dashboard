@@ -6,9 +6,9 @@ Conectado a Google Sheets (o Excel local como fallback).
 """
 
 import base64
-import hashlib
+import hmac
+import logging
 import os
-from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -320,11 +320,20 @@ a{color:#EE7015}
 # AUTHENTICATION — Google OAuth2 (Hardened)
 # ══════════════════════════════════════════════════════════════════════════════
 import secrets
+import hashlib
 import time as _time
 import re as _re
 import html as _html
 import requests as _requests
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode
+
+# Audit logger — writes to stdout (captured by Streamlit Cloud logs)
+_audit_log = logging.getLogger("pontia.audit")
+_audit_log.setLevel(logging.INFO)
+if not _audit_log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s [AUDIT] %(message)s"))
+    _audit_log.addHandler(_h)
 
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -406,6 +415,34 @@ def _record_login_attempt():
     st.session_state["_last_login_attempt"] = _time.time()
 
 
+def _get_session_secret() -> str:
+    """Obtiene un secreto para firmar sesiones (del client_secret de OAuth)."""
+    try:
+        return st.secrets.get("google_oauth", {}).get("client_secret", "fallback-key")
+    except Exception:
+        return "fallback-key"
+
+
+def _sign_session(email: str, auth_time: float) -> str:
+    """Genera un HMAC-SHA256 para verificar integridad de la sesión."""
+    secret = _get_session_secret()
+    payload = f"{email}:{auth_time}"
+    return hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+
+
+def _verify_session() -> bool:
+    """Verifica que la sesión no ha sido manipulada."""
+    if not st.session_state.get("authenticated"):
+        return False
+    email = st.session_state.get("user_email", "")
+    auth_time = st.session_state.get("_auth_time", 0)
+    signature = st.session_state.get("_session_sig", "")
+    if not email or not auth_time or not signature:
+        return False
+    expected = _sign_session(email, auth_time)
+    return hmac.compare_digest(signature, expected)
+
+
 def _validate_picture_url(url: str) -> str:
     """Valida que la URL de la foto sea segura (solo HTTPS de Google)."""
     if not url:
@@ -437,7 +474,7 @@ def _handle_oauth_callback():
         return False
 
     # Validar formato de code y state (solo caracteres URL-safe)
-    if not code or not _re.match(r'^[a-zA-Z0-9_\-/.]+$', str(code)):
+    if not code or not _re.match(r'^[a-zA-Z0-9_\-]+$', str(code)):
         st.error("Parámetros de autenticación inválidos.")
         st.query_params.clear()
         return False
@@ -510,14 +547,17 @@ def _handle_oauth_callback():
         st.query_params.clear()
         return False
 
-    # Login exitoso — resetear rate limit
+    # Login exitoso — resetear rate limit + firmar sesión
+    auth_time = _time.time()
     st.session_state["_login_attempts"] = 0
     st.session_state["authenticated"] = True
     st.session_state["user_email"] = email
     st.session_state["user_name"] = _html.escape(user_info.get("name", email))
     st.session_state["user_picture"] = _validate_picture_url(user_info.get("picture", ""))
-    st.session_state["_auth_time"] = _time.time()
+    st.session_state["_auth_time"] = auth_time
+    st.session_state["_session_sig"] = _sign_session(email, auth_time)
     st.query_params.clear()
+    _audit_log.info(f"LOGIN_SUCCESS email={email}")
     return True
 
 
@@ -2281,6 +2321,7 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
 
     st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Cerrar sesión"):
+        _audit_log.info(f"LOGOUT email={st.session_state.get('user_email', 'unknown')}")
         st.session_state.clear()
         st.rerun()
 
@@ -2414,177 +2455,30 @@ Los semáforos del dashboard usan estos umbrales (configurables en `config.yaml`
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
-def _tab_diagnostico_hubspot():
-    """Pestaña temporal de diagnóstico para analizar propiedades de HubSpot."""
-    section("DIAGNÓSTICO HUBSPOT")
-    st.markdown(
-        '<p style="font-size:.8rem;color:#808080">'
-        'Esta pestaña muestra todas las propiedades disponibles en tu HubSpot '
-        'para identificar cuáles mapear al Google Sheet. Se eliminará cuando la integración esté completa.'
-        '</p>',
-        unsafe_allow_html=True,
-    )
-
-    if st.button("🔍 Analizar HubSpot", type="primary"):
-        with st.spinner("Conectando con HubSpot API..."):
-            try:
-                from utils.hubspot_loader import diagnose_hubspot
-                diag = diagnose_hubspot()
-            except Exception as e:
-                st.error("Error al conectar con el servicio. Contacta con el administrador.")
-                return
-
-        if "error" in diag:
-            st.error(diag["error"])
-            return
-
-        # 1. Propiedades de contactos
-        st.markdown("### 📋 Propiedades de Contactos")
-        if "contact_properties" in diag:
-            props = diag["contact_properties"]
-            st.markdown(f"**{len(props)} propiedades encontradas.** Buscando las relevantes...")
-
-            # Filtrar propiedades interesantes (que podrían mapear a campaña/canal/fuente)
-            keywords = ["campaign", "campaña", "source", "fuente", "medium", "canal", "channel",
-                        "utm", "ad", "lead", "origen", "origin", "referr"]
-            relevant = [p for p in props if any(k in p["name"].lower() or k in p["label"].lower() for k in keywords)]
-
-            if relevant:
-                st.markdown("**🎯 Propiedades relevantes (posible mapeo a campaña/canal):**")
-                df_rel = pd.DataFrame(relevant)
-                st.dataframe(df_rel, use_container_width=True, hide_index=True)
-            else:
-                st.warning("No se encontraron propiedades con nombres relacionados a campañas/UTM")
-
-            df_all_props = pd.DataFrame(props)
-            with st.expander("Ver TODAS las propiedades de contactos"):
-                st.dataframe(df_all_props, use_container_width=True, hide_index=True)
-
-            st.download_button(
-                "⬇️ Descargar propiedades de contactos (CSV)",
-                df_all_props.to_csv(index=False),
-                "hubspot_contact_properties.csv",
-                "text/csv",
-            )
-        elif "contact_properties_error" in diag:
-            st.error(f"Error: {diag['contact_properties_error']}")
-
-        # 2. Propiedades de deals
-        st.markdown("### 💼 Propiedades de Deals")
-        if "deal_properties" in diag:
-            props = diag["deal_properties"]
-            st.markdown(f"**{len(props)} propiedades encontradas.**")
-
-            keywords_deal = ["campaign", "campaña", "stage", "etapa", "amount", "importe",
-                             "revenue", "ingreso", "lost", "perdid", "reason", "motivo",
-                             "source", "fuente", "canal"]
-            relevant = [p for p in props if any(k in p["name"].lower() or k in p["label"].lower() for k in keywords_deal)]
-
-            if relevant:
-                st.markdown("**🎯 Propiedades relevantes:**")
-                df_rel = pd.DataFrame(relevant)
-                st.dataframe(df_rel, use_container_width=True, hide_index=True)
-
-            df_all_deal_props = pd.DataFrame(props)
-            with st.expander("Ver TODAS las propiedades de deals"):
-                st.dataframe(df_all_deal_props, use_container_width=True, hide_index=True)
-
-            st.download_button(
-                "⬇️ Descargar propiedades de deals (CSV)",
-                df_all_deal_props.to_csv(index=False),
-                "hubspot_deal_properties.csv",
-                "text/csv",
-            )
-
-        # 3. Pipeline y etapas
-        st.markdown("### 🔄 Pipeline — Etapas")
-        if "pipeline_stages" in diag:
-            stages = diag["pipeline_stages"]
-            for stage_id, stage_name in stages.items():
-                st.markdown(f"- `{stage_id}` → **{stage_name}**")
-        elif "pipeline_stages_error" in diag:
-            st.error(f"Error: {diag['pipeline_stages_error']}")
-
-        # 4. Contactos RECIENTES de pago — todas las propiedades con valor
-        st.markdown("### 👤 Contactos recientes de pago (últimos 30 días)")
-        st.markdown(
-            '<p style="font-size:.78rem;color:#808080">'
-            'Mostrando TODAS las propiedades con valor para encontrar dónde está el nombre de campaña.'
-            '</p>',
-            unsafe_allow_html=True,
-        )
-
-        _personal_keys_set = {"email", "firstname", "lastname", "first_name", "last_name",
-                     "phone", "mobilephone", "address", "city", "zip", "fax",
-                     "nombre", "apellido", "telefono", "direccion", "hs_ip_timezone",
-                     "ip_city", "ip_state", "ip_country", "ip_latlon"}
-
-        all_sample_contacts = []
-        for source_type in ["PAID_SEARCH", "PAID_SOCIAL"]:
-            key = f"sample_contacts_{source_type}"
-            if key in diag and diag[key]:
-                st.markdown(f"#### 🔹 {source_type} ({len(diag[key])} contactos recientes)")
-                for i, contact in enumerate(diag[key]):
-                    # Filtrar datos personales
-                    safe = {k: v for k, v in contact.items()
-                            if k.lower() not in _personal_keys_set
-                            and not any(p in k.lower() for p in ["email", "name", "phone", "ip_"])}
-                    with st.expander(f"Contacto {i+1} — {len(safe)} propiedades con valor"):
-                        for k, v in sorted(safe.items()):
-                            # Resaltar propiedades que podrían contener nombre de campaña
-                            if any(w in k.lower() for w in ["campaign", "source", "ad", "canal", "utm"]):
-                                st.markdown(f"- 🎯 **{k}**: `{v}`")
-                            else:
-                                st.markdown(f"- {k}: {v}")
-                all_sample_contacts.extend(diag[key])
-            elif key in diag:
-                st.markdown(f"**🔹 {source_type}**: sin contactos en últimos 30 días")
-
-        if all_sample_contacts:
-            df_all_samples = pd.DataFrame(all_sample_contacts)
-            # Anonimizar
-            personal_cols = [c for c in df_all_samples.columns if any(k in c.lower() for k in [
-                "email", "firstname", "lastname", "name", "phone", "address", "ip_", "fax", "city", "zip",
-            ])]
-            df_anon = df_all_samples.drop(columns=personal_cols, errors="ignore")
-            st.download_button(
-                "⬇️ Descargar contactos recientes ANÓNIMOS (CSV)",
-                df_anon.to_csv(index=False),
-                "hubspot_recent_contacts_anon.csv",
-                "text/csv",
-            )
-
-        # 5. Muestra de deals
-        st.markdown("### 💰 Muestra de deals (20 primeros)")
-        if "sample_deals" in diag and diag["sample_deals"]:
-            df_deals = pd.DataFrame(diag["sample_deals"])
-            # Quitar columnas vacías
-            cols_with_data = [c for c in df_deals.columns if df_deals[c].notna().any() and (df_deals[c] != "").any()]
-            st.dataframe(df_deals[cols_with_data], use_container_width=True, hide_index=True)
-            st.download_button(
-                "⬇️ Descargar muestra deals (CSV)",
-                df_deals[cols_with_data].to_csv(index=False),
-                "hubspot_sample_deals.csv",
-                "text/csv",
-            )
 
 
 def main():
     inject_css()
 
     # ── Auth ──────────────────────────────────────────────────────────────────
-    if not st.session_state.get("authenticated"):
+    if not st.session_state.get("authenticated") or not _verify_session():
+        if st.session_state.get("authenticated"):
+            _audit_log.warning(f"SESSION_INVALID email={st.session_state.get('user_email', 'unknown')}")
+            st.session_state.clear()
         show_login_page()
         st.stop()
 
-    # ── Session timeout (30 minutos) ──────────────────────────────────────
+    # ── Session timeout (30 minutos, sliding window) ──────────────────────
     _now = _time.time()
-    if _now - st.session_state.get("_auth_time", _now) > _SESSION_TIMEOUT:
+    _auth_time = st.session_state.get("_auth_time", _now)
+    if _now - _auth_time > _SESSION_TIMEOUT:
+        _audit_log.info(f"SESSION_TIMEOUT email={st.session_state.get('user_email', 'unknown')}")
         st.session_state.clear()
         st.rerun()
-    st.session_state.setdefault("_auth_time", _now)
-    # Renovar timeout en cada interacción
+    # Renovar timeout y re-firmar en cada interacción
+    email = st.session_state.get("user_email", "")
     st.session_state["_auth_time"] = _now
+    st.session_state["_session_sig"] = _sign_session(email, _now)
 
     # ── Load data ─────────────────────────────────────────────────────────────
     loading_placeholder = st.empty()

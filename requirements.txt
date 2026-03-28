@@ -1,8 +1,8 @@
-streamlit>=1.36.0,<2.0.0
-pandas>=2.0.0,<3.0.0
-plotly>=5.18.0,<7.0.0
-openpyxl>=3.1.0,<4.0.0
-pyyaml>=6.0,<7.0
-requests>=2.31.0,<3.0.0
-numpy>=1.24.0,<3.0.0
-# anthropic>=0.40.0  # Descomentar cuando se configure la API key
+streamlit>=1.36.0,<1.50.0
+pandas>=2.0.0,<2.4.0
+plotly>=5.18.0,<6.0.0
+openpyxl>=3.1.0,<3.2.0
+pyyaml>=6.0,<6.1.0
+requests>=2.31.0,<2.33.0
+numpy>=1.24.0,<2.4.0
+# anthropic>=0.40.0,<1.0.0  # Descomentar cuando se configure la API key

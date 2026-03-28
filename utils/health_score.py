@@ -244,7 +244,7 @@ def detect_alerts(
             if curr.empty and not prev.empty and prev["Leads Válidos"].sum() > 0:
                 alerts.append({
                     "type": "danger",
-                    "message": f"**{camp}** tenía {int(prev['Leads Válidos'].sum())} leads en S{prev_week} pero 0 esta semana",
+                    "message": f"<b>{camp}</b> tenía {int(prev['Leads Válidos'].sum())} leads en S{prev_week} pero 0 esta semana",
                     "campaign": camp,
                 })
             continue
@@ -257,7 +257,7 @@ def detect_alerts(
             if pct_change > 30:
                 alerts.append({
                     "type": "warning",
-                    "message": f"**{camp}**: CPL subió {pct_change:.0f}% ({cpl_prev:.1f}€ → {cpl_curr:.1f}€)",
+                    "message": f"<b>{camp}</b>: CPL subió {pct_change:.0f}% ({cpl_prev:.1f}€ → {cpl_curr:.1f}€)",
                     "campaign": camp,
                 })
 
@@ -274,7 +274,7 @@ def detect_alerts(
                 if ce_change > 40:
                     alerts.append({
                         "type": "warning",
-                        "message": f"**{camp}**: Coste/entrevista subió {ce_change:.0f}% ({ce_prev:.0f}€ → {ce_curr:.0f}€)",
+                        "message": f"<b>{camp}</b>: Coste/entrevista subió {ce_change:.0f}% ({ce_prev:.0f}€ → {ce_curr:.0f}€)",
                         "campaign": camp,
                     })
 
@@ -326,7 +326,7 @@ def detect_decline_alerts(
             alerts.append({
                 "type": "warning",
                 "message": (
-                    f"📉 **{camp}**: Lleva {row['Weeks_Data']} semanas activa. "
+                    f"📉 <b>{camp}</b>: Lleva {row['Weeks_Data']} semanas activa. "
                     f"Health score cayó de {past_score:.0f} → {current_score:.0f}. Revisar tendencia."
                 ),
                 "campaign": camp,
@@ -366,36 +366,43 @@ def detect_loss_pattern_alerts(
 ) -> list[dict]:
     """Detecta campañas con motivos de pérdida anormalmente altos vs la media.
 
-    Compara el % de cada motivo de pérdida por campaña con la media global.
-    Alerta si una campaña supera la media en más de 15 puntos porcentuales.
+    Usa las últimas 2 semanas para reflejar la situación actual,
+    y compara con la media global de todas las campañas.
     """
     df = df_all[~df_all["Canal"].str.contains("orgánico|seo|organic", case=False, na=False)].copy()
     if df.empty:
         return []
 
-    # Usar datos acumulados (todas las semanas) para patrones más fiables
-    # Columnas de motivos disponibles
-    available = [col for col in _LOSS_REASONS if col in df.columns]
+    # Últimas 2 semanas para reflejar situación actual
+    all_weeks = sorted(df["Semana"].unique())
+    if current_week not in all_weeks:
+        return []
+    idx = all_weeks.index(current_week)
+    recent_weeks = all_weeks[max(0, idx - 1): idx + 1]
+    df_recent = df[df["Semana"].isin(recent_weeks)]
+    if df_recent.empty:
+        return []
+
+    available = [col for col in _LOSS_REASONS if col in df_recent.columns]
     if not available:
         return []
 
-    # Agregar por campaña (acumulado todas las semanas)
-    agg_cols = {"Perdidos": ("Perdidos", "sum")} if "Perdidos" in df.columns else {}
+    # Agregar por campaña (últimas 2 semanas)
+    agg_cols = {"Perdidos": ("Perdidos", "sum")} if "Perdidos" in df_recent.columns else {}
     for col in available:
         agg_cols[col] = (col, "sum")
 
-    by_camp = df.groupby("ID_Campaña").agg(**agg_cols).reset_index()
+    by_camp = df_recent.groupby("ID_Campaña").agg(**agg_cols).reset_index()
     if "Perdidos" not in by_camp.columns:
         by_camp["Perdidos"] = sum(by_camp[col] for col in available)
     by_camp = by_camp[by_camp["Perdidos"] > 0]
     if by_camp.empty:
         return []
 
-    # Calcular % por motivo
     for col in available:
         by_camp[f"pct_{col}"] = by_camp[col] / by_camp["Perdidos"] * 100
 
-    # Media global de cada motivo
+    # Media global (todas las campañas, últimas 2 semanas)
     total_perdidos = by_camp["Perdidos"].sum()
     medias = {}
     for col in available:
@@ -403,18 +410,18 @@ def detect_loss_pattern_alerts(
 
     alerts = []
     for _, row in by_camp.iterrows():
-        if row["Perdidos"] < 3:  # ignorar campañas con muy pocos perdidos
+        if row["Perdidos"] < 2:
             continue
         for col in available:
             pct = row[f"pct_{col}"]
             media = medias[col]
             diff = pct - media
-            if diff > 10 and pct > 15:  # >10pp por encima de la media Y >15% absoluto
+            if diff > 10 and pct > 15:
                 info = _LOSS_REASONS[col]
                 alerts.append({
                     "type": "info",
                     "message": (
-                        f"🔍 **{row['ID_Campaña']}**: {info['label']} = {pct:.0f}% "
+                        f"🔍 <b>{row['ID_Campaña']}</b>: {info['label']} = {pct:.0f}% "
                         f"(media: {media:.0f}%). {info['diagnostic']}"
                     ),
                     "campaign": row["ID_Campaña"],

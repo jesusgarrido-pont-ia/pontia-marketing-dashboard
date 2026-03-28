@@ -1151,6 +1151,11 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
     alerts = detect_alerts(df_all, current_week)
     if alerts:
         section("ALERTAS SEMANALES")
+        st.markdown(
+            f'<p style="font-size:.78rem;color:#808080;margin-top:-.5rem;margin-bottom:.8rem">'
+            f'Cambios S{current_week} vs S{current_week - 1} (esta semana vs semana anterior)</p>',
+            unsafe_allow_html=True,
+        )
         for a in alerts[:8]:  # máximo 8 alertas
             kind = "d" if a["type"] == "danger" else "w"
             alert(a["message"], kind)

@@ -1232,12 +1232,13 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
     .ht-box {{visibility:hidden;opacity:0;position:absolute;z-index:999;
       top:calc(100% + 8px);left:50%;transform:translateX(-50%);
       width:220px;padding:8px 10px;border-radius:8px;
-      background:#1a1a1a !important;color:#ffffff !important;font-size:11px !important;font-weight:400 !important;
+      background:#ffffff !important;color:#333333 !important;font-size:11px !important;font-weight:400 !important;
+      border:1px solid #E5E7EB !important;
       line-height:1.4;letter-spacing:normal;text-transform:none;
       box-shadow:0 4px 12px rgba(0,0,0,.25);
       transition:opacity .15s ease,visibility .15s ease;pointer-events:none}}
     .ht-box::after {{content:'';position:absolute;bottom:100%;left:50%;
-      transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#1a1a1a}}
+      transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#E5E7EB}}
     .ht-wrap:hover .ht-box {{visibility:visible;opacity:1}}
     </style>
     <div style="overflow-x:auto;overflow-y:visible;border:1px solid #E5E7EB;border-radius:10px;background:#FFFFFF;position:relative">

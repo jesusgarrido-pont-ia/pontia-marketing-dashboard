@@ -1652,19 +1652,12 @@ def tab_campanas(df: pd.DataFrame, benchmarks=None):
     summary["ROAS"] = np.where(summary["Inversión"] > 0, summary["Ingresos"] / summary["Inversión"], np.nan)
     summary["Conv%"] = np.where(summary["Leads"] > 0, summary["Matriculados"] / summary["Leads"] * 100, np.nan)
 
-    # Columna Estado con semáforo
-    summary["Estado"] = summary.apply(
-        lambda r: _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"], benchmarks)[0]
-                  + " " + _clasificar_campana(r["CPL"], r["ROAS"], r["Leads"], r["Inversión"], benchmarks)[1],
-        axis=1,
-    )
-
     display = summary[[
-        "Estado", "ID_Campaña", "Canal", "Inversión", "Leads", "CPL",
+        "ID_Campaña", "Canal", "Inversión", "Leads", "CPL",
         "Entrevistas", "Matriculados", "Ingresos", "ROAS", "Conv%",
     ]].copy()
     display.columns = [
-        "Estado", "Campaña", "Canal", "Inversión €", "Leads", "CPL €",
+        "Campaña", "Canal", "Inversión €", "Leads", "CPL €",
         "Entrevistas", "Matrículas", "Ingresos €", "ROAS", "Conv. %",
     ]
 

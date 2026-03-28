@@ -1174,6 +1174,13 @@ def tab_decisiones(df_filtered: pd.DataFrame, df_all: pd.DataFrame, benchmarks: 
 
     st.markdown('<div class="div"></div>', unsafe_allow_html=True)
 
+    # ── Embudo de conversión ──────────────────────────────────────────────
+    section("EMBUDO DE CONVERSIÓN")
+    with st.container(border=True):
+        st.plotly_chart(chart_embudo(df_filtered), use_container_width=True, config={"displayModeBar": False}, key="embudo_decisiones")
+
+    st.markdown('<div class="div"></div>', unsafe_allow_html=True)
+
     # ── Sección A: Resumen de acciones ────────────────────────────────────
     section("PANEL DE DECISIONES INTELIGENTE")
 
@@ -1897,20 +1904,14 @@ def tab_historico(df: pd.DataFrame):
 
 
 def tab_perdidas(df: pd.DataFrame):
-    """Tab 4: Análisis de pérdidas y embudo de conversión."""
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        section("Embudo de Conversión Global")
+    """Tab 4: Análisis de pérdidas."""
+    section("Motivos de Pérdida")
+    fig_loss = chart_motivos_perdida(df)
+    if fig_loss:
         with st.container(border=True):
-            st.plotly_chart(chart_embudo(df), use_container_width=True, config={"displayModeBar": False}, key="embudo")
-    with c2:
-        section("Motivos de Pérdida")
-        fig_loss = chart_motivos_perdida(df)
-        if fig_loss:
-            with st.container(border=True):
-                st.plotly_chart(fig_loss, use_container_width=True, config={"displayModeBar": False}, key="motivos_perdida")
-        else:
-            st.info("Sin datos de motivos de pérdida para este filtro.")
+            st.plotly_chart(fig_loss, use_container_width=True, config={"displayModeBar": False}, key="motivos_perdida")
+    else:
+        st.info("Sin datos de motivos de pérdida para este filtro.")
 
     section("Pérdidas semanales vs Entrevistas vs Matrículas")
     with st.container(border=True):
@@ -1932,76 +1933,6 @@ def tab_perdidas(df: pd.DataFrame):
     loss_sum["% Pérdida"] = loss_sum["% Pérdida"].apply(lambda x: f"{x:.1f}%" if not pd.isna(x) else "—")
     st.dataframe(loss_sum.reset_index(drop=True), use_container_width=True, height=320)
 
-    # Análisis orgánico separado
-    org = df[df["Canal"].str.contains("orgánico|seo", case=False, na=False)]
-    if not org.empty:
-        section("Canal Orgánico — Métricas Clave")
-        oc1, oc2, oc3, oc4 = st.columns(4)
-        with oc1:
-            kpi_card("🌱", "Leads Orgánicos", fmt_num(org["Leads Válidos"].sum()), "total")
-        with oc2:
-            kpi_card("🤝", "Entrevistas", fmt_num(org["Entrevistas"].sum()), "orgánico")
-        with oc3:
-            kpi_card("🎓", "Matriculados", fmt_num(org["Matriculados"].sum()), "orgánico")
-        with oc4:
-            kpi_card("💵", "Ingresos Org.", fmt_eur(org["Ingresos (€)"].sum()), "sin inversión directa")
-
-    # Análisis Google Ads
-    goog = df[df["Canal"].str.contains("google", case=False, na=False)]
-    if not goog.empty:
-        section("Google Ads — Métricas Clave")
-        gc1, gc2, gc3, gc4, gc5 = st.columns(5)
-        with gc1:
-            kpi_card("🔍", "Inversión", fmt_eur(goog["Inversión (€)"].sum()), "Google Ads")
-        with gc2:
-            kpi_card("👥", "Leads Válidos", fmt_num(goog["Leads Válidos"].sum()), "total")
-        with gc3:
-            inv_g = goog["Inversión (€)"].sum()
-            leads_g = goog["Leads Válidos"].sum()
-            cpl_g = inv_g / leads_g if leads_g > 0 else None
-            kpi_card("💶", "CPL Medio", fmt_eur(cpl_g) if cpl_g else "—", "coste por lead")
-        with gc4:
-            kpi_card("🎓", "Matriculados", fmt_num(goog["Matriculados"].sum()), "Google Ads")
-        with gc5:
-            kpi_card("💵", "Ingresos", fmt_eur(goog["Ingresos (€)"].sum()), "Google Ads")
-
-    # Análisis Meta Ads
-    meta = df[df["Canal"].str.contains("meta|fb|ig", case=False, na=False)]
-    if not meta.empty:
-        section("Meta Ads — Métricas Clave")
-        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
-        with mc1:
-            kpi_card("📘", "Inversión", fmt_eur(meta["Inversión (€)"].sum()), "Meta Ads")
-        with mc2:
-            kpi_card("👥", "Leads Válidos", fmt_num(meta["Leads Válidos"].sum()), "total")
-        with mc3:
-            inv_m = meta["Inversión (€)"].sum()
-            leads_m = meta["Leads Válidos"].sum()
-            cpl_m = inv_m / leads_m if leads_m > 0 else None
-            kpi_card("💶", "CPL Medio", fmt_eur(cpl_m) if cpl_m else "—", "coste por lead")
-        with mc4:
-            kpi_card("🎓", "Matriculados", fmt_num(meta["Matriculados"].sum()), "Meta Ads")
-        with mc5:
-            kpi_card("💵", "Ingresos", fmt_eur(meta["Ingresos (€)"].sum()), "Meta Ads")
-
-    # Análisis LinkedIn Ads
-    lnkd = df[df["Canal"].str.contains("linkedin", case=False, na=False)]
-    if not lnkd.empty:
-        section("LinkedIn Ads — Métricas Clave")
-        lc1, lc2, lc3, lc4, lc5 = st.columns(5)
-        with lc1:
-            kpi_card("💼", "Inversión", fmt_eur(lnkd["Inversión (€)"].sum()), "LinkedIn Ads")
-        with lc2:
-            kpi_card("👥", "Leads Válidos", fmt_num(lnkd["Leads Válidos"].sum()), "total")
-        with lc3:
-            inv_l = lnkd["Inversión (€)"].sum()
-            leads_l = lnkd["Leads Válidos"].sum()
-            cpl_l = inv_l / leads_l if leads_l > 0 else None
-            kpi_card("💶", "CPL Medio", fmt_eur(cpl_l) if cpl_l else "—", "coste por lead")
-        with lc4:
-            kpi_card("🎓", "Matriculados", fmt_num(lnkd["Matriculados"].sum()), "LinkedIn Ads")
-        with lc5:
-            kpi_card("💵", "Ingresos", fmt_eur(lnkd["Ingresos (€)"].sum()), "LinkedIn Ads")
 
 
 def tab_datos(df: pd.DataFrame):
